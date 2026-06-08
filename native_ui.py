@@ -88,7 +88,7 @@ class PostureApp:
         self.pause_label = tk.Label(
             self.root, text="⏸  PAUSED",
             font=("Segoe UI", 40, "bold"),
-            fg="white", bg="#000000aa", justify="center"
+            fg="white", bg="#111111", justify="center"
         )
 
         # 右侧 — 控制面板
