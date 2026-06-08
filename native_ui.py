@@ -6,6 +6,7 @@ native_ui.py — 基于 Tkinter 的原生 UI，用于 HDMI 触摸屏本地显示
 """
 
 import sys
+import signal
 import time
 import threading
 import tkinter as tk
@@ -337,12 +338,8 @@ class PostureApp:
                              not self.root.attributes('-fullscreen'))
 
     def _exit(self):
+        """安全退出 — 只关窗口，不主动释放 NPU（避免 ACL 内核调用卡死）"""
         self._running = False
-        time.sleep(0.2)
-        try:
-            dm.cleanup_resources()
-        except Exception:
-            pass
         self.root.destroy()
 
     # ================================================================
@@ -350,6 +347,11 @@ class PostureApp:
     # ================================================================
     def run(self):
         print(">>> Native UI Starting (threaded mode) <<<")
+
+        # Ctrl+C / kill 信号处理
+        signal.signal(signal.SIGINT, lambda *a: self._exit())
+        signal.signal(signal.SIGTERM, lambda *a: self._exit())
+
         self.root.protocol("WM_DELETE_WINDOW", self._exit)
         self.root.after(500, self._refresh_display)
         self.root.mainloop()
