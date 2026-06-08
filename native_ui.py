@@ -215,15 +215,18 @@ class PostureApp:
                 inp = np.ascontiguousarray(inp)
 
                 with dm.npu_lock:
-                    p = dm.acl.util.numpy_to_ptr(inp)
+                    p = dm.acl.util.bytes_to_ptr(inp.tobytes())
                     dm.acl.rt.memcpy(dm.input_dev_ptr, dm.img_size, p, dm.img_size, 1)
                     dm.acl.mdl.execute(dm.model_id, dm.input_dataset, dm.output_dataset)
                     dm.acl.rt.memcpy(dm.out_host_ptr, dm.output_size,
                                      dm.output_dev_ptr, dm.output_size, 2)
                     raw = dm.acl.util.ptr_to_bytes(dm.out_host_ptr, dm.output_size)
-                    arr = np.frombuffer(raw, dtype=np.float32)
+                    arr = np.frombuffer(raw, dtype=np.float32) if raw else np.array([])
 
-                _, kp = dm.parse_npu_output(arr, conf_threshold=0.15)
+                if arr.size > 0:
+                    _, kp = dm.parse_npu_output(arr, conf_threshold=0.15)
+                else:
+                    kp = None
             else:
                 kp = None
 
