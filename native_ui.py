@@ -9,10 +9,14 @@ import sys
 import signal
 import time
 import threading
+import warnings
 import tkinter as tk
 from tkinter import ttk
 import cv2
 import numpy as np
+
+# 忽略 acl 的废弃警告
+warnings.filterwarnings('ignore', message='.*numpy_to_ptr.*')
 
 # ---- 编码兜底 ----
 _ENC = 'utf-8'
@@ -195,6 +199,7 @@ class PostureApp:
     def _npu_loop(self):
         """后台线程: 摄像头读取 → NPU 推理 → 姿势分析 → PPM 编码"""
         dm.acl.rt.set_context(dm.context)
+        frame_count = 0
 
         while self._running:
             t0 = time.perf_counter()
@@ -215,7 +220,7 @@ class PostureApp:
                 inp = np.ascontiguousarray(inp)
 
                 with dm.npu_lock:
-                    p = dm.acl.util.bytes_to_ptr(inp.tobytes())
+                    p = dm.acl.util.numpy_to_ptr(inp)
                     dm.acl.rt.memcpy(dm.input_dev_ptr, dm.img_size, p, dm.img_size, 1)
                     dm.acl.mdl.execute(dm.model_id, dm.input_dataset, dm.output_dataset)
                     dm.acl.rt.memcpy(dm.out_host_ptr, dm.output_size,
@@ -223,9 +228,9 @@ class PostureApp:
                     raw = dm.acl.util.ptr_to_bytes(dm.out_host_ptr, dm.output_size)
                     arr = np.frombuffer(raw, dtype=np.float32) if raw else np.array([])
 
-                if arr.size > 0:
+                try:
                     _, kp = dm.parse_npu_output(arr, conf_threshold=0.15)
-                else:
+                except Exception:
                     kp = None
             else:
                 kp = None
@@ -258,6 +263,11 @@ class PostureApp:
             ok, ppm = cv2.imencode('.ppm', small)
             if not ok:
                 continue
+
+            # 调试: 每100帧打印一次
+            frame_count += 1
+            if frame_count % 100 == 0:
+                print(f"[NPU] frame {frame_count}, status={status}, fps={fps:.1f}")
 
             # 更新共享状态
             with self._lock:
