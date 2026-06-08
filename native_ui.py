@@ -251,7 +251,7 @@ class PostureApp:
 
             # 缩放到显示分辨率 → BGR→RGB → PPM 编码
             small = cv2.resize(disp, (self.DISP_W, self.DISP_H))
-            rgb = small[..., ::-1]  # BGR → RGB (比 cvtColor 快)
+            rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
             ok, ppm = cv2.imencode('.ppm', rgb)
             if not ok:
                 continue
