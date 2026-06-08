@@ -250,10 +250,9 @@ class PostureApp:
                 cv2.putText(disp, f"NPU FPS: {fps:.1f}", (20, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-            # 缩放到显示分辨率 → BGR→RGB → PPM 编码
+            # 缩放到显示分辨率 → PPM 编码（imencode 内部处理 BGR→RGB）
             small = cv2.resize(disp, (self.DISP_W, self.DISP_H))
-            rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-            ok, ppm = cv2.imencode('.ppm', rgb)
+            ok, ppm = cv2.imencode('.ppm', small)
             if not ok:
                 continue
 
