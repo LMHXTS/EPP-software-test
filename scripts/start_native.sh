@@ -1,13 +1,23 @@
 #!/bin/bash
 # ============================================================
-# start_native.sh — 自动启动原生姿态检测 UI
-# 无需 Flask / Chromium / 网络
+# start_native.sh — 启动脚本 (HDMI 检测 + 平滑字体)
 # ============================================================
+cd /root/Desktop/elec_project
 
-PROJECT_DIR="$HOME/detect"
-LOG_FILE="/tmp/native_ui.log"
+# 等待 HDMI 就绪（最多等 10 秒）
+for i in $(seq 1 10); do
+    STATUS=$(cat /sys/class/drm/card0-VGA-1/status 2>/dev/null)
+    if [ "$STATUS" = "connected" ]; then
+        break
+    fi
+    sleep 1
+done
 
-echo "$(date): Starting native posture UI..." >> "$LOG_FILE"
+if [ "$STATUS" != "connected" ]; then
+    echo "$(date): No HDMI display, skipping UI" >> /tmp/native_ui.log
+    exit 0
+fi
 
-cd "$PROJECT_DIR"
-python3 native_ui.py >> "$LOG_FILE" 2>&1
+echo "$(date): HDMI detected, starting UI" >> /tmp/native_ui.log
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libtk8.6.so
+python3 native_ui.py >> /tmp/native_ui.log 2>&1
