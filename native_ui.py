@@ -85,10 +85,10 @@ class ArcGauge(tk.Canvas):
                          outline=c, width=10)
 
         # center value text
-        self.create_text(cx, cy - 14, text=f"{self.value:.1f}",
-                          font=(T.FONT, 22, "bold"), fill=T.CHARCOAL)
-        self.create_text(cx, cy + 12, text="deg",
-                          font=(T.FONT, 9), fill=T.WARMGRY)
+        self.create_text(cx, cy - 16, text=f"{self.value:.1f}",
+                          font=(T.FONT, 26, "bold"), fill=T.CHARCOAL)
+        self.create_text(cx, cy + 14, text="deg",
+                          font=(T.FONT, 10), fill=T.WARMGRY)
 
     def set(self, value, threshold):
         old_v, old_t = self.value, self.threshold
@@ -119,7 +119,7 @@ class StatusPill(tk.Canvas):
                                   r, fill=self.color, outline="")
         # text
         self.create_text(self.w / 2, self.h / 2, text=self.text,
-                          font=(T.FONT, 14, "bold"), fill=T.WHITE)
+                          font=(T.FONT, 16, "bold"), fill=T.WHITE)
 
     def create_rounded_rect(self, x1, y1, x2, y2, r, **kw):
         """Draw a pill / rounded rectangle on canvas with corner circles + fill rects."""
@@ -197,98 +197,98 @@ class PostureApp:
         pad = 28
 
         # ---- Header ----
-        head = tk.Frame(p, bg=T.IVORY, height=100)
-        head.pack(fill='x', padx=pad, pady=(pad + 10, 0))
+        head = tk.Frame(p, bg=T.IVORY, height=120)
+        head.pack(fill='x', padx=pad, pady=(pad + 16, 0))
         head.pack_propagate(False)
 
-        tk.Label(head, text="Ascend NPU", font=(T.FONT, 10, "bold"),
+        tk.Label(head, text="Ascend NPU", font=(T.FONT, 12, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x')
-        tk.Label(head, text="Posture", font=(T.FONT, 30, "bold"),
+        tk.Label(head, text="Posture", font=(T.FONT, 36, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
         tk.Label(head, text="Real-time spinal monitoring",
-                 font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY,
+                 font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
                  anchor='w').pack(fill='x')
 
         # ---- Status Pill ----
-        tk.Frame(p, bg=T.IVORY, height=20).pack()  # spacer
+        tk.Frame(p, bg=T.IVORY, height=28).pack()  # spacer
         pill_frame = tk.Frame(p, bg=T.IVORY)
         pill_frame.pack(fill='x', padx=pad)
-        self.pill = StatusPill(pill_frame, width=self.pw - pad * 2, height=48)
+        self.pill = StatusPill(pill_frame, width=self.pw - pad * 2, height=58)
         self.pill.pack()
         self.pill.set("Initializing...", T.WARMGRY)
 
         # ---- Arc Gauges Row ----
-        tk.Frame(p, bg=T.IVORY, height=16).pack()
+        tk.Frame(p, bg=T.IVORY, height=22).pack()
         gauges = tk.Frame(p, bg=T.IVORY)
         gauges.pack(fill='x', padx=pad - 4)
 
         # Neck gauge
         neck_col = tk.Frame(gauges, bg=T.IVORY)
         neck_col.pack(side='left', expand=True, fill='both')
-        tk.Label(neck_col, text="NECK", font=(T.FONT, 8, "bold"),
+        tk.Label(neck_col, text="NECK", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
-        self.neck_gauge = ArcGauge(neck_col, width=150, height=120)
+        self.neck_gauge = ArcGauge(neck_col, width=170, height=140)
         self.neck_gauge.pack()
         tk.Label(neck_col, text="Forward head tilt",
-                 font=(T.FONT, 9), fg=T.WARMGRY, bg=T.IVORY).pack()
+                 font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         # Spine gauge
         spine_col = tk.Frame(gauges, bg=T.IVORY)
         spine_col.pack(side='left', expand=True, fill='both')
-        tk.Label(spine_col, text="SPINE", font=(T.FONT, 8, "bold"),
+        tk.Label(spine_col, text="SPINE", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
-        self.spine_gauge = ArcGauge(spine_col, width=150, height=120)
+        self.spine_gauge = ArcGauge(spine_col, width=170, height=140)
         self.spine_gauge.pack()
         tk.Label(spine_col, text="Slouch / hunch",
-                 font=(T.FONT, 9), fg=T.WARMGRY, bg=T.IVORY).pack()
+                 font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         # ---- Divider ----
-        tk.Frame(p, bg=T.IVORY, height=20).pack()
+        tk.Frame(p, bg=T.IVORY, height=26).pack()
         self._div(p, pad)
 
         # ---- Threshold Sliders ----
-        tk.Frame(p, bg=T.IVORY, height=14).pack()
-        tk.Label(p, text="THRESHOLDS", font=(T.FONT, 8, "bold"),
+        tk.Frame(p, bg=T.IVORY, height=20).pack()
+        tk.Label(p, text="THRESHOLDS", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad)
-        tk.Frame(p, bg=T.IVORY, height=6).pack()
+        tk.Frame(p, bg=T.IVORY, height=10).pack()
 
         self._slider_block(p, pad, "Neck forward alert",
                            dm.PostureConfig.TH_NECK, self._on_neck,
                            self, '_neck_th_label')
 
-        tk.Frame(p, bg=T.IVORY, height=10).pack()
+        tk.Frame(p, bg=T.IVORY, height=16).pack()
 
         self._slider_block(p, pad, "Spine slouch alert",
                            dm.PostureConfig.TH_SPINE, self._on_spine,
                            self, '_spine_th_label')
 
         # ---- Divider ----
-        tk.Frame(p, bg=T.IVORY, height=20).pack()
+        tk.Frame(p, bg=T.IVORY, height=26).pack()
         self._div(p, pad)
 
         # ---- Toggle Button ----
-        tk.Frame(p, bg=T.IVORY, height=16).pack()
+        tk.Frame(p, bg=T.IVORY, height=22).pack()
         self.btn = tk.Button(
-            p, text="STOP DETECTION", font=(T.FONT, 13, "bold"),
+            p, text="STOP DETECTION", font=(T.FONT, 15, "bold"),
             fg=T.WHITE, bg=T.ROSE, relief="flat", bd=0,
             activeforeground=T.WHITE, activebackground="#B85A50",
-            padx=20, pady=14, cursor="hand2",
+            padx=20, pady=16, cursor="hand2",
             command=self._toggle
         )
         self.btn.pack(fill='x', padx=pad)
 
         # ---- FPS + Exit (bottom) ----
         bottom = tk.Frame(p, bg=T.IVORY)
-        bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 20))
+        bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 24))
 
-        self.fps_label = tk.Label(bottom, text="— fps", font=(T.FONT, 9),
+        self.fps_label = tk.Label(bottom, text="— fps", font=(T.FONT, 10),
                                    fg=T.WARMGRY, bg=T.IVORY)
         self.fps_label.pack(side='left')
 
-        tk.Button(bottom, text="Exit", font=(T.FONT, 9),
+        tk.Button(bottom, text="Exit", font=(T.FONT, 10),
                   fg=T.WARMGRY, bg=T.IVORY,
                   activeforeground=T.CHARCOAL, activebackground=T.MIST,
-                  relief="flat", padx=8, pady=2,
+                  relief="flat", padx=8, pady=4,
                   cursor="hand2", command=self._exit
                   ).pack(side='right')
 
@@ -302,18 +302,18 @@ class PostureApp:
         row = tk.Frame(parent, bg=T.IVORY)
         row.pack(fill='x', padx=pad)
 
-        lbl = tk.Label(row, text=label, font=(T.FONT, 11),
+        lbl = tk.Label(row, text=label, font=(T.FONT, 13),
                         fg=T.CHARCOAL, bg=T.IVORY, anchor='w')
         lbl.pack(side='left')
 
-        val_lbl = tk.Label(row, text=f"{value:.1f}°", font=(T.FONT, 12, "bold"),
+        val_lbl = tk.Label(row, text=f"{value:.1f}°", font=(T.FONT, 14, "bold"),
                             fg=T.SAGE, bg=T.IVORY, anchor='e')
         val_lbl.pack(side='right')
         setattr(store_obj, attr, val_lbl)
 
         s = ttk.Scale(parent, from_=5, to=60, value=value,
                        length=self.pw - pad * 2, command=cmd)
-        s.pack(pady=(4, 0))
+        s.pack(pady=(6, 0))
 
         # store slider ref
         base = attr.replace('_label', '')
