@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""native_ui.py — 兼容入口（实际逻辑已迁移至 ui/app.py）"""
+"""main.py — 姿态检测入口"""
 
 from ui.app import PostureApp
 

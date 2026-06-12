@@ -39,4 +39,4 @@ exec env DISPLAY=:0 \
     LD_LIBRARY_PATH=${ASCEND}/lib64:${ASCEND}/compiler/lib64 \
     PYTHONPATH=${ASCEND}/python/site-packages:${ASCEND}/opp/built-in/op_impl/ai_core/tbe \
     ASCEND_TOOLKIT_HOME=${ASCEND} \
-    /usr/local/miniconda3/bin/python3 native_ui.py >> /tmp/native_ui.log 2>&1
+    /usr/local/miniconda3/bin/python3 main.py >> /tmp/native_ui.log 2>&1
