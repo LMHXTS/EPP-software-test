@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-npu_detect_web_ui.py — 基于昇腾(Ascend) NPU 的实时姿态检测 Web 服务
-核心逻辑：NPU 推理、姿态分析、视频流生成
-Web 显示部分已拆分至 web_ui.py
-"""
+"""detect_main.py — 基于昇腾(Ascend) NPU 的实时姿态检测核心库
+包含：NPU 硬件管理、模型推理、姿态分析、帧渲染
+Web 服务部分已拆分至 web_ui.py，原生 UI 在 native_ui.py"""
 import sys
 import locale
 import time
@@ -12,7 +10,7 @@ import cv2
 import numpy as np
 import acl
 
-# ---- 编码兜底逻辑 (Encoding fallback) ----
+# ---- 编码兜底逻辑 ----
 # 在昇腾板子上系统 locale 可能不是 UTF-8，导致 print() 中文时抛出
 # UnicodeEncodeError。此处强制将 stdout/stderr 重配置为 UTF-8。
 # 注意：Python 3 已移除 sys.setdefaultencoding，改用 reconfigure()。
@@ -25,7 +23,9 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 # ==========================================
-# 全局配置与姿态判断逻辑 (Global Configuration & Posture Logic)
+# ==========================================
+# 全局配置与姿态判断逻辑
+# ==========================================
 # ==========================================
 class PostureConfig:
     # 定义关键点索引（对应YOLOv8-pose输出的关节点序列）
@@ -101,7 +101,9 @@ def analyze_spine_posture(keypoints):
     }
 
 # ==========================================
-# NPU 输出解析与高级UI渲染 (NPU Output Parser & Advanced UI Renderer)
+# ==========================================
+# NPU 输出解析与帧渲染
+# ==========================================
 # ==========================================
 def parse_npu_output(result_array, conf_threshold=0.10):
     """解析NPU返回的推理结果数组（针对YOLOv8-pose结构）
@@ -183,7 +185,9 @@ def render_ui(frame, analysis, fps=0.0):
     return frame
 
 # ==========================================
-# NPU 硬件资源管理 (Hardware Resources)
+# ==========================================
+# NPU 硬件资源管理
+# ==========================================
 # ==========================================
 # 线程锁：保护NPU推理资源，防止在多客户端连接时（Flask开启多线程）引发并发访问冲突
 npu_lock = threading.Lock()
@@ -268,7 +272,9 @@ def cleanup_resources():
     print("--- All NPU Resources Released ---")
 
 # ==========================================
-# 实时视频流生成器 (Real-time Video Stream Generator - Web Core)
+# ==========================================
+# 实时视频流生成器（Web MJPEG 流）
+# ==========================================
 # ==========================================
 def generate_frames():
     """从摄像头读取图像，送入NPU推理并向Flask前端不断推送渲染效果后的JPEG图像"""
