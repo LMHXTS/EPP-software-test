@@ -23,4 +23,4 @@ fi
 echo "$(date): HDMI detected, launching on :0" >> /tmp/native_ui.log
 export DISPLAY=:0
 export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libtk8.6.so
-python3 native_ui.py >> /tmp/native_ui.log 2>&1
+/usr/local/miniconda3/bin/python3 native_ui.py >> /tmp/native_ui.log 2>&1
