@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import sys; sys.path.insert(0, '/usr/local/miniconda3/lib/python3.9/site-packages')
 """
 native_ui.py —  Ascend NPU Real-Time Posture Detection
 "Soft Clinical" design — warm minimalism meets health-tech precision.
