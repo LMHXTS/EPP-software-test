@@ -1,24 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-native_ui.py — 基于 Tkinter 的原生 UI，用于 HDMI 触摸屏本地显示
-架构: 后台 NPU 线程(full speed) + Tkinter 主线程(30fps 刷新显示)
-无需 Flask / 浏览器 / 网络 / PIL
+native_ui.py —  Ascend NPU Real-Time Posture Detection
+"Soft Clinical" design — warm minimalism meets health-tech precision.
+Tkinter + Canvas arc gauges + touch-friendly controls.
 """
 
-import sys
-import signal
-import time
-import threading
-import warnings
+import sys, signal, time, threading, warnings
 import tkinter as tk
 from tkinter import ttk
-import cv2
-import numpy as np
+import cv2, numpy as np
 
-# 忽略 acl 的废弃警告
 warnings.filterwarnings('ignore', message='.*numpy_to_ptr.*')
 
-# ---- 编码兜底 ----
 _ENC = 'utf-8'
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -30,189 +23,327 @@ for _s in (sys.stdout, sys.stderr):
 import detect_main as dm
 
 
+# ============================================================
+#  Design Tokens  —  "Japanese Wellness Clinic"
+# ============================================================
+class T:
+    CREAM    = "#F7F3EE"   # warm paper white
+    IVORY    = "#EDE8E2"   # slightly deeper, for panel bg
+    SAND     = "#D9D2C5"   # borders / dividers
+    CHARCOAL = "#2C2824"   # primary text
+    WARMGRY  = "#7D7872"   # secondary text
+    SAGE     = "#8BB59A"   # good posture — soft green
+    CORAL    = "#DF9889"   # mild warning — warm terracotta
+    ROSE     = "#CF6B5E"   # bad posture — muted red
+    BARK     = "#4A423A"   # dark accent, for video surround
+    MIST     = "#F0EDE8"   # hover / active states
+    WHITE    = "#FFFFFF"
+    BLACK    = "#1A1816"
+
+    DISP_W   = 800         # video render width
+    DISP_H   = 450
+
+    FONT     = "Ubuntu"    # XFCE default, clean & modern
+    MONO     = "DejaVu Sans Mono"
+
+    RADIUS   = 16          # corner radius (simulated)
+
+
+# ============================================================
+#  Circular Gauge  —  Canvas-drawn arc indicator
+# ============================================================
+class ArcGauge(tk.Canvas):
+    """A semicircular arc gauge showing a value from 0 to 60 degrees.
+    Color transitions from sage (low) → coral (mid) → rose (high)."""
+
+    def __init__(self, parent, width=180, height=130, **kw):
+        super().__init__(parent, width=width, height=height,
+                         bg=T.IVORY, highlightthickness=0, **kw)
+        self.w, self.h = width, height
+        self.value = 0.0
+        self.threshold = 25.0
+        self._draw()
+
+    def _draw(self):
+        self.delete("all")
+        cx, cy = self.w / 2, self.h - 10
+        r = min(self.w, self.h) - 18
+
+        # background arc (0° to 180°)
+        self.create_arc(cx - r, cy - r, cx + r, cy + r,
+                         start=180, extent=180, style="arc",
+                         outline=T.SAND, width=10)
+
+        # value arc
+        angle = min(self.value / 60.0 * 180, 180)
+        if self.value > self.threshold:
+            c = T.ROSE if self.value > self.threshold * 1.6 else T.CORAL
+        else:
+            c = T.SAGE
+        self.create_arc(cx - r, cy - r, cx + r, cy + r,
+                         start=180, extent=-angle, style="arc",
+                         outline=c, width=10)
+
+        # center value text
+        self.create_text(cx, cy - 14, text=f"{self.value:.1f}",
+                          font=(T.FONT, 22, "bold"), fill=T.CHARCOAL)
+        self.create_text(cx, cy + 12, text="deg",
+                          font=(T.FONT, 9), fill=T.WARMGRY)
+
+    def set(self, value, threshold):
+        old_v, old_t = self.value, self.threshold
+        self.value, self.threshold = value, threshold
+        if abs(old_v - value) > 0.05 or abs(old_t - threshold) > 0.05:
+            self._draw()
+
+
+# ============================================================
+#  Status Pill  —  Canvas-drawn rounded status badge
+# ============================================================
+class StatusPill(tk.Canvas):
+    """A rounded pill badge that changes color with posture status."""
+
+    def __init__(self, parent, width=280, height=52, **kw):
+        super().__init__(parent, width=width, height=height,
+                         bg=T.IVORY, highlightthickness=0, **kw)
+        self.w, self.h = width, height
+        self.text = ""
+        self.color = T.SAND
+        self._draw()
+
+    def _draw(self):
+        self.delete("all")
+        r = self.h / 2
+        # pill background
+        self.create_rounded_rect(2, 2, self.w - 2, self.h - 2,
+                                  r, fill=self.color, outline="")
+        # text
+        self.create_text(self.w / 2, self.h / 2, text=self.text,
+                          font=(T.FONT, 14, "bold"), fill=T.WHITE)
+
+    def create_rounded_rect(self, x1, y1, x2, y2, r, **kw):
+        """Draw a pill / rounded rectangle on canvas with corner circles + fill rects."""
+        self.create_oval(x1, y1, x1 + 2 * r, y1 + 2 * r, fill=kw.get("fill"), outline="")
+        self.create_oval(x2 - 2 * r, y1, x2, y1 + 2 * r, fill=kw.get("fill"), outline="")
+        self.create_oval(x1, y2 - 2 * r, x1 + 2 * r, y2, fill=kw.get("fill"), outline="")
+        self.create_oval(x2 - 2 * r, y2 - 2 * r, x2, y2, fill=kw.get("fill"), outline="")
+        self.create_rectangle(x1 + r, y1, x2 - r, y2, fill=kw.get("fill"), outline="")
+        self.create_rectangle(x1, y1 + r, x2, y2 - r, fill=kw.get("fill"), outline="")
+
+    def set(self, text, color):
+        if self.text != text or self.color != color:
+            self.text, self.color = text, color
+            self._draw()
+
+
+# ============================================================
+#  Main Application
+# ============================================================
 class PostureApp:
-    """全屏原生姿态检测 UI — 暗色主题 + 触摸友好"""
-
-    # 配色
-    BG = "#1a1a2e"
-    PANEL = "#16213e"
-    ACCENT = "#0f3460"
-    GREEN = "#4ecca3"
-    RED = "#e23e57"
-    ORANGE = "#f0a500"
-    TEXT = "#eeeeee"
-    SUBTEXT = "#a0a0b0"
-
-    # 显示分辨率（低分辨率→ PPM 编码快→ 帧率高）
-    DISP_W = 800
-    DISP_H = 450
 
     def __init__(self):
-        # ---- 线程安全共享状态 ----
         self._lock = threading.Lock()
         self._running = True
         self._detection_on = True
-
-        # NPU 线程写入，UI 线程读取
-        self._ppm_bytes = None       # 预编码的 PPM 帧数据
+        self._ppm_bytes = None
         self._status = "Initializing..."
         self._neck_angle = 0.0
         self._spine_angle = 0.0
         self._fps = 0.0
-        self._paused = False         # 是否显示暂停遮罩
+        self._paused = False
 
-        # ---- 构建 UI ----
         self.root = tk.Tk()
-        self.root.title("Posture Detection")
-        self.root.configure(bg=self.BG)
+        self.root.title("Posture")
+        self.root.configure(bg=T.BARK)
         self.root.attributes('-fullscreen', True)
         self.root.bind('<Escape>', lambda e: self._toggle_fs())
         self.root.bind('<F11>', lambda e: self._toggle_fs())
 
         self.sw = self.root.winfo_screenwidth()
         self.sh = self.root.winfo_screenheight()
-        self.pw = int(self.sw * 0.28)  # 右侧面板宽度
-        self.vw = self.sw - self.pw    # 视频区域宽度
-        self.vh = self.sh
+        self.pw = int(self.sw * 0.32)
+        self.vw = self.sw - self.pw
 
         self._build_ui()
-
-        # ---- 初始化 NPU 并启动后台线程 ----
         self._init_npu()
         self._start_npu_thread()
 
     # ================================================================
-    #  UI 构建
+    #  UI Construction
     # ================================================================
     def _build_ui(self):
-        # 左侧 — 视频显示
-        self.video_label = tk.Label(self.root, bg="#000", borderwidth=0)
-        self.video_label.place(x=0, y=0, width=self.vw, height=self.vh)
+        # -- Left: video zone with dark surround --
+        video_frame = tk.Frame(self.root, bg=T.BLACK, width=self.vw, height=self.sh)
+        video_frame.place(x=0, y=0)
+        video_frame.pack_propagate(False)
 
-        # 暂停遮罩
+        # subtle inner border (2px charcoal line)
+        inner = tk.Frame(video_frame, bg=T.BARK, width=self.vw - 4, height=self.sh - 4)
+        inner.place(x=2, y=2)
+
+        self.video_label = tk.Label(inner, bg=T.BLACK, borderwidth=0)
+        self.video_label.place(x=0, y=0, width=self.vw - 4, height=self.sh - 4)
+
+        # pause overlay
         self.pause_label = tk.Label(
-            self.root, text="⏸  PAUSED",
-            font=("Segoe UI", 40, "bold"),
-            fg="white", bg="#111111", justify="center"
+            video_frame, text="PAUSED",
+            font=(T.FONT, 42, "bold"), fg=T.WHITE, bg=T.BLACK, justify="center"
         )
 
-        # 右侧 — 控制面板
-        p = tk.Frame(self.root, bg=self.PANEL, width=self.pw, height=self.sh)
+        # -- Right: control panel --
+        p = tk.Frame(self.root, bg=T.IVORY, width=self.pw, height=self.sh)
         p.place(x=self.vw, y=0)
         p.pack_propagate(False)
+        pad = 28
 
-        s = {"fg": self.TEXT, "bg": self.PANEL}
-        sg = {"fg": self.SUBTEXT, "bg": self.PANEL}
+        # ---- Header ----
+        head = tk.Frame(p, bg=T.IVORY, height=100)
+        head.pack(fill='x', padx=pad, pady=(pad + 10, 0))
+        head.pack_propagate(False)
 
-        tk.Label(p, text="Ascend NPU", font=("Segoe UI", 20, "bold"),
-                 fg=self.GREEN, bg=self.PANEL).pack(pady=(30, 3))
-        tk.Label(p, text="Real-Time Posture Detection",
-                 font=("Segoe UI", 10), **sg).pack(pady=(0, 20))
+        tk.Label(head, text="Ascend NPU", font=(T.FONT, 10, "bold"),
+                 fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x')
+        tk.Label(head, text="Posture", font=(T.FONT, 30, "bold"),
+                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
+        tk.Label(head, text="Real-time spinal monitoring",
+                 font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY,
+                 anchor='w').pack(fill='x')
 
-        ttk.Separator(p, orient='horizontal').pack(fill='x', padx=16)
+        # ---- Status Pill ----
+        tk.Frame(p, bg=T.IVORY, height=20).pack()  # spacer
+        pill_frame = tk.Frame(p, bg=T.IVORY)
+        pill_frame.pack(fill='x', padx=pad)
+        self.pill = StatusPill(pill_frame, width=self.pw - pad * 2, height=48)
+        self.pill.pack()
+        self.pill.set("Initializing...", T.WARMGRY)
 
-        # 状态
-        tk.Label(p, text="STATUS", font=("Segoe UI", 9, "bold"),
-                 **sg).pack(pady=(18, 3))
-        self.st_label = tk.Label(p, text="Initializing...",
-                                 font=("Segoe UI", 18, "bold"),
-                                 fg=self.TEXT, bg=self.PANEL,
-                                 wraplength=self.pw - 20, justify="center")
-        self.st_label.pack(pady=(0, 12))
+        # ---- Arc Gauges Row ----
+        tk.Frame(p, bg=T.IVORY, height=16).pack()
+        gauges = tk.Frame(p, bg=T.IVORY)
+        gauges.pack(fill='x', padx=pad - 4)
 
-        # 角度
-        af = tk.Frame(p, bg=self.PANEL)
-        af.pack(fill='x', padx=16)
-        tk.Label(af, text="Neck Angle", **sg).pack(anchor='w')
-        self.neck_v = tk.Label(af, text="--°", font=("Segoe UI", 28, "bold"),
-                               fg=self.GREEN, bg=self.PANEL)
-        self.neck_v.pack(anchor='w', pady=(0, 8))
+        # Neck gauge
+        neck_col = tk.Frame(gauges, bg=T.IVORY)
+        neck_col.pack(side='left', expand=True, fill='both')
+        tk.Label(neck_col, text="NECK", font=(T.FONT, 8, "bold"),
+                 fg=T.WARMGRY, bg=T.IVORY).pack()
+        self.neck_gauge = ArcGauge(neck_col, width=150, height=120)
+        self.neck_gauge.pack()
+        tk.Label(neck_col, text="Forward head tilt",
+                 font=(T.FONT, 9), fg=T.WARMGRY, bg=T.IVORY).pack()
 
-        tk.Label(af, text="Spine Angle", **sg).pack(anchor='w')
-        self.spine_v = tk.Label(af, text="--°", font=("Segoe UI", 28, "bold"),
-                                fg=self.GREEN, bg=self.PANEL)
-        self.spine_v.pack(anchor='w', pady=(0, 16))
+        # Spine gauge
+        spine_col = tk.Frame(gauges, bg=T.IVORY)
+        spine_col.pack(side='left', expand=True, fill='both')
+        tk.Label(spine_col, text="SPINE", font=(T.FONT, 8, "bold"),
+                 fg=T.WARMGRY, bg=T.IVORY).pack()
+        self.spine_gauge = ArcGauge(spine_col, width=150, height=120)
+        self.spine_gauge.pack()
+        tk.Label(spine_col, text="Slouch / hunch",
+                 font=(T.FONT, 9), fg=T.WARMGRY, bg=T.IVORY).pack()
 
-        ttk.Separator(p, orient='horizontal').pack(fill='x', padx=16)
+        # ---- Divider ----
+        tk.Frame(p, bg=T.IVORY, height=20).pack()
+        self._div(p, pad)
 
-        # 阈值滑块
-        tk.Label(p, text="THRESHOLDS", font=("Segoe UI", 9, "bold"),
-                 **sg).pack(pady=(14, 6))
+        # ---- Threshold Sliders ----
+        tk.Frame(p, bg=T.IVORY, height=14).pack()
+        tk.Label(p, text="THRESHOLDS", font=(T.FONT, 8, "bold"),
+                 fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad)
+        tk.Frame(p, bg=T.IVORY, height=6).pack()
 
-        tk.Label(p, text="Neck Forward", **s).pack(anchor='w', padx=20)
-        self.nth_v = tk.Label(p, text=f"{dm.PostureConfig.TH_NECK:.1f}°",
-                              font=("Segoe UI", 12, "bold"),
-                              fg=self.GREEN, bg=self.PANEL)
-        self.nth_v.pack(anchor='e', padx=20)
-        self.neck_slider = ttk.Scale(p, from_=5, to=60,
-                                     value=dm.PostureConfig.TH_NECK,
-                                     length=self.pw - 44,
-                                     command=self._on_neck)
-        self.neck_slider.pack(pady=(0, 10))
+        self._slider_block(p, pad, "Neck forward alert",
+                           dm.PostureConfig.TH_NECK, self._on_neck,
+                           self, '_neck_th_label')
 
-        tk.Label(p, text="Spine Slouch", **s).pack(anchor='w', padx=20)
-        self.sth_v = tk.Label(p, text=f"{dm.PostureConfig.TH_SPINE:.1f}°",
-                              font=("Segoe UI", 12, "bold"),
-                              fg=self.GREEN, bg=self.PANEL)
-        self.sth_v.pack(anchor='e', padx=20)
-        self.spine_slider = ttk.Scale(p, from_=5, to=60,
-                                      value=dm.PostureConfig.TH_SPINE,
-                                      length=self.pw - 44,
-                                      command=self._on_spine)
-        self.spine_slider.pack()
+        tk.Frame(p, bg=T.IVORY, height=10).pack()
 
-        ttk.Separator(p, orient='horizontal').pack(fill='x', padx=16, pady=16)
+        self._slider_block(p, pad, "Spine slouch alert",
+                           dm.PostureConfig.TH_SPINE, self._on_spine,
+                           self, '_spine_th_label')
 
-        # 启停按钮
+        # ---- Divider ----
+        tk.Frame(p, bg=T.IVORY, height=20).pack()
+        self._div(p, pad)
+
+        # ---- Toggle Button ----
+        tk.Frame(p, bg=T.IVORY, height=16).pack()
         self.btn = tk.Button(
-            p, text="⏸  STOP", font=("Segoe UI", 16, "bold"),
-            fg="white", bg=self.RED, relief="flat", bd=0,
-            padx=16, pady=12, cursor="hand2",
+            p, text="STOP DETECTION", font=(T.FONT, 13, "bold"),
+            fg=T.WHITE, bg=T.ROSE, relief="flat", bd=0,
+            activeforeground=T.WHITE, activebackground="#B85A50",
+            padx=20, pady=14, cursor="hand2",
             command=self._toggle
         )
-        self.btn.pack(fill='x', padx=16, pady=4)
+        self.btn.pack(fill='x', padx=pad)
 
-        # FPS
-        self.fps_label = tk.Label(p, text="FPS: --", **sg)
-        self.fps_label.pack(pady=(16, 4))
+        # ---- FPS + Exit (bottom) ----
+        bottom = tk.Frame(p, bg=T.IVORY)
+        bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 20))
 
-        # 退出
-        tk.Button(p, text="Exit", font=("Segoe UI", 9),
-                  fg=self.SUBTEXT, bg=self.ACCENT,
-                  relief="flat", padx=8, pady=4,
+        self.fps_label = tk.Label(bottom, text="— fps", font=(T.FONT, 9),
+                                   fg=T.WARMGRY, bg=T.IVORY)
+        self.fps_label.pack(side='left')
+
+        tk.Button(bottom, text="Exit", font=(T.FONT, 9),
+                  fg=T.WARMGRY, bg=T.IVORY,
+                  activeforeground=T.CHARCOAL, activebackground=T.MIST,
+                  relief="flat", padx=8, pady=2,
                   cursor="hand2", command=self._exit
-                  ).pack(side='bottom', pady=16)
+                  ).pack(side='right')
+
+    def _div(self, parent, pad):
+        """A subtle hairline divider."""
+        d = tk.Frame(parent, bg=T.SAND, height=1)
+        d.pack(fill='x', padx=pad)
+
+    def _slider_block(self, parent, pad, label, value, cmd, store_obj, attr):
+        """Build a label + slider row."""
+        row = tk.Frame(parent, bg=T.IVORY)
+        row.pack(fill='x', padx=pad)
+
+        lbl = tk.Label(row, text=label, font=(T.FONT, 11),
+                        fg=T.CHARCOAL, bg=T.IVORY, anchor='w')
+        lbl.pack(side='left')
+
+        val_lbl = tk.Label(row, text=f"{value:.1f}°", font=(T.FONT, 12, "bold"),
+                            fg=T.SAGE, bg=T.IVORY, anchor='e')
+        val_lbl.pack(side='right')
+        setattr(store_obj, attr, val_lbl)
+
+        s = ttk.Scale(parent, from_=5, to=60, value=value,
+                       length=self.pw - pad * 2, command=cmd)
+        s.pack(pady=(4, 0))
+
+        # store slider ref
+        base = attr.replace('_label', '')
+        setattr(store_obj, base + '_slider', s)
 
     # ================================================================
-    #  NPU 初始化 + 后台推理线程
+    #  NPU + Threading  (logic unchanged from working version)
     # ================================================================
     def _init_npu(self):
         try:
             dm.init_resources()
         except Exception as e:
-            self.st_label.config(text=f"NPU Error: {e}", fg=self.RED)
+            self.pill.set(f"NPU Error: {e}", T.ROSE)
 
     def _start_npu_thread(self):
-        t = threading.Thread(target=self._npu_loop, daemon=True)
-        t.start()
+        threading.Thread(target=self._npu_loop, daemon=True).start()
 
     def _npu_loop(self):
-        """后台线程: 摄像头读取 → NPU 推理 → 姿势分析 → PPM 编码"""
         dm.acl.rt.set_context(dm.context)
-        frame_count = 0
-
+        fc = 0
         while self._running:
             t0 = time.perf_counter()
             ret, orig = dm.cap.read()
             if not ret:
-                time.sleep(0.1)
-                continue
+                time.sleep(0.1); continue
 
             oh, ow = orig.shape[:2]
             do_infer = self._detection_on
 
             if do_infer:
-                # 预处理 640×640
                 img = cv2.resize(orig, (640, 640))
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 img = img.transpose(2, 0, 1)
@@ -235,17 +366,14 @@ class PostureApp:
             else:
                 kp = None
 
-            # FPS
             ms = (time.perf_counter() - t0) * 1000
             fps = 1000.0 / ms if ms > 0 else 0.0
 
-            # 分析 + 渲染到原始尺寸帧
             if kp is not None:
                 kp = kp.copy()
                 sx, sy = ow / 640.0, oh / 640.0
                 for pt in kp:
-                    pt[0] *= sx
-                    pt[1] *= sy
+                    pt[0] *= sx; pt[1] *= sy
                 a = dm.analyze_spine_posture(kp)
                 if a.get("error"):
                     status, na, sa = "No Person", 0.0, 0.0
@@ -255,21 +383,13 @@ class PostureApp:
             else:
                 status, na, sa = "No Person", 0.0, 0.0
                 disp = orig
-                cv2.putText(disp, f"NPU FPS: {fps:.1f}", (20, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                cv2.putText(disp, f"FPS: {fps:.1f}", (20, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            # 缩放到显示分辨率 → PPM 编码（imencode 内部处理 BGR→RGB）
-            small = cv2.resize(disp, (self.DISP_W, self.DISP_H))
+            small = cv2.resize(disp, (T.DISP_W, T.DISP_H))
             ok, ppm = cv2.imencode('.ppm', small)
-            if not ok:
-                continue
+            if not ok: continue
 
-            # 调试: 每100帧打印一次
-            frame_count += 1
-            if frame_count % 100 == 0:
-                print(f"[NPU] frame {frame_count}, status={status}, fps={fps:.1f}")
-
-            # 更新共享状态
             with self._lock:
                 self._ppm_bytes = ppm.tobytes()
                 self._status = status
@@ -279,10 +399,9 @@ class PostureApp:
                 self._paused = not do_infer
 
     # ================================================================
-    #  Tkinter 显示刷新 (30fps)
+    #  Display Refresh
     # ================================================================
     def _refresh_display(self):
-        """主线程: 31ms 间隔刷新画面 + 状态面板"""
         with self._lock:
             ppm = self._ppm_bytes
             status = self._status
@@ -291,7 +410,6 @@ class PostureApp:
             fps = self._fps
             paused = self._paused
 
-        # 更新视频帧
         if ppm:
             try:
                 img = tk.PhotoImage(data=ppm)
@@ -300,70 +418,66 @@ class PostureApp:
             except Exception:
                 pass
 
-        # 暂停遮罩
         if paused:
-            self.pause_label.place(x=0, y=0, width=self.vw, height=self.vh)
+            self.pause_label.place(x=4, y=4, width=self.vw - 4, height=self.sh - 4)
             self.pause_label.lift()
         else:
             self.pause_label.place_forget()
 
-        # 状态面板
+        # Status pill
         if "Warning" in status:
-            c = self.RED if ("Tilt" in status or "Slouching" in status) else self.ORANGE
+            if "Tilt" in status or "Slouching" in status:
+                pill_c, pill_t = T.ROSE, status.upper()
+            else:
+                pill_c, pill_t = T.CORAL, status.upper()
         elif status == "Standard Posture":
-            c = self.GREEN
+            pill_c, pill_t = T.SAGE, "GOOD POSTURE"
         else:
-            c = self.SUBTEXT
-        self.st_label.config(text=status, fg=c)
+            pill_c, pill_t = T.WARMGRY, status.upper()
+        self.pill.set(pill_t, pill_c)
 
-        nc = self.RED if na > dm.PostureConfig.TH_NECK else self.GREEN
-        self.neck_v.config(text=f"{na:.1f}°", fg=nc)
-        sc = self.RED if sa > dm.PostureConfig.TH_SPINE else self.GREEN
-        self.spine_v.config(text=f"{sa:.1f}°", fg=sc)
-        self.fps_label.config(text=f"FPS: {fps:.1f}")
+        # Arc gauges
+        self.neck_gauge.set(na, dm.PostureConfig.TH_NECK)
+        self.spine_gauge.set(sa, dm.PostureConfig.TH_SPINE)
 
-        # 继续调度
-        self.root.after(31, self._refresh_display)
+        self.fps_label.config(text=f"{fps:.1f} fps")
+
+        self.root.after(33, self._refresh_display)
 
     # ================================================================
-    #  交互回调
+    #  Interaction
     # ================================================================
     def _toggle(self):
         self._detection_on = not self._detection_on
         if self._detection_on:
-            self.btn.config(text="⏸  STOP", bg=self.RED)
+            self.btn.config(text="STOP DETECTION", bg=T.ROSE,
+                            activebackground="#B85A50")
         else:
-            self.btn.config(text="▶  START", bg=self.GREEN)
+            self.btn.config(text="START DETECTION", bg=T.SAGE,
+                            activebackground="#6F9A7D")
 
     def _on_neck(self, val):
         v = float(val)
         dm.PostureConfig.TH_NECK = v
-        self.nth_v.config(text=f"{v:.1f}°")
+        self._neck_th_label.config(text=f"{v:.1f}°")
 
     def _on_spine(self, val):
         v = float(val)
         dm.PostureConfig.TH_SPINE = v
-        self.sth_v.config(text=f"{v:.1f}°")
+        self._spine_th_label.config(text=f"{v:.1f}°")
 
     def _toggle_fs(self):
         self.root.attributes('-fullscreen',
                              not self.root.attributes('-fullscreen'))
 
     def _exit(self):
-        """安全退出 — 只关窗口，不主动释放 NPU（避免 ACL 内核调用卡死）"""
         self._running = False
         self.root.destroy()
 
-    # ================================================================
-    #  启动
-    # ================================================================
     def run(self):
-        print(">>> Native UI Starting (threaded mode) <<<")
-
-        # Ctrl+C / kill 信号处理
+        print(">>> Posture — Soft Clinical Edition <<<")
         signal.signal(signal.SIGINT, lambda *a: self._exit())
         signal.signal(signal.SIGTERM, lambda *a: self._exit())
-
         self.root.protocol("WM_DELETE_WINDOW", self._exit)
         self.root.after(500, self._refresh_display)
         self.root.mainloop()
