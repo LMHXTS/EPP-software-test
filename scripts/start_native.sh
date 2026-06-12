@@ -21,6 +21,10 @@ if [ "$STATUS" != "connected" ]; then
 fi
 
 echo "$(date): HDMI detected, launching on :0" >> /tmp/native_ui.log
+
+# 加载 Ascend 工具链环境
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
 export DISPLAY=:0
 export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libtk8.6.so
 /usr/local/miniconda3/bin/python3 native_ui.py >> /tmp/native_ui.log 2>&1
