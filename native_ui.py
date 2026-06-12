@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys; sys.path.insert(0, '/usr/local/miniconda3/lib/python3.9/site-packages')
 """
 native_ui.py —  Ascend NPU Real-Time Posture Detection
 "Soft Clinical" design — warm minimalism meets health-tech precision.
@@ -43,8 +44,8 @@ class T:
     DISP_W   = 800         # video render width
     DISP_H   = 450
 
-    FONT     = "Ubuntu"    # XFCE default, clean & modern
-    MONO     = "DejaVu Sans Mono"
+    FONT     = "Lato"              # warm humanist sans — smooth & modern
+    MONO     = "DejaVu Sans Mono"   # clean monospace
 
     RADIUS   = 16          # corner radius (simulated)
 
