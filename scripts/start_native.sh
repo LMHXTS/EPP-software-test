@@ -1,10 +1,12 @@
 #!/bin/bash
 # ============================================================
-# start_native.sh — 启动脚本 (HDMI 检测 + 平滑字体)
+# start_native.sh — HDMI 检测 + 平滑字体 + 强制本地显示
+# 由 XFCE autostart 触发，天然运行在 DISPLAY=:0 上
 # ============================================================
 cd /root/Desktop/elec_project
 
 # 等待 HDMI 就绪（最多等 10 秒）
+STATUS="disconnected"
 for i in $(seq 1 10); do
     STATUS=$(cat /sys/class/drm/card0-VGA-1/status 2>/dev/null)
     if [ "$STATUS" = "connected" ]; then
@@ -14,11 +16,11 @@ for i in $(seq 1 10); do
 done
 
 if [ "$STATUS" != "connected" ]; then
-    echo "$(date): No HDMI display, skipping UI" >> /tmp/native_ui.log
+    echo "$(date): No HDMI display, skipping." >> /tmp/native_ui.log
     exit 0
 fi
 
-echo "$(date): HDMI detected, starting UI" >> /tmp/native_ui.log
-exec env -i DISPLAY=:0 HOME=/root PATH=/usr/local/miniconda3/bin:/usr/bin:/bin \
-    LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libtk8.6.so \
-    python3 /root/Desktop/elec_project/native_ui.py >> /tmp/native_ui.log 2>&1
+echo "$(date): HDMI detected, launching on :0" >> /tmp/native_ui.log
+export DISPLAY=:0
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libtk8.6.so
+python3 native_ui.py >> /tmp/native_ui.log 2>&1
