@@ -17,11 +17,7 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 from config import PostureConfig
-from engine import (init_resources, cap, npu_lock, context,
-                    input_dev_ptr, img_size, model_id,
-                    input_dataset, output_dataset,
-                    output_dev_ptr, output_size, out_host_ptr,
-                    parse_npu_output, acl)
+import engine
 from posture import analyze_spine_posture
 from renderer import render_ui
 from ui.theme import T
@@ -215,7 +211,7 @@ class PostureApp:
     # ================================================================
     def _init_npu(self):
         try:
-            init_resources()
+            engine.init_resources()
         except Exception as e:
             self.pill.set(f"NPU Error: {e}", T.ROSE)
 
@@ -224,12 +220,12 @@ class PostureApp:
 
     def _npu_loop(self):
         """后台线程：摄像头读取 → NPU 推理 → 姿势分析 → PPM 编码"""
-        acl.rt.set_context(context)
+        engine.acl.rt.set_context(engine.context)
         fc = 0
         print("[NPU] loop started")
         while self._running:
             t0 = time.perf_counter()
-            ret, orig = cap.read()
+            ret, orig = engine.cap.read()
             if not ret:
                 time.sleep(0.1); continue
 
@@ -244,17 +240,17 @@ class PostureApp:
                 inp = np.expand_dims(img, 0).astype(np.float32) / 255.0
                 inp = np.ascontiguousarray(inp)
 
-                with npu_lock:
-                    p = acl.util.numpy_to_ptr(inp)
-                    acl.rt.memcpy(input_dev_ptr, img_size, p, img_size, 1)
-                    acl.mdl.execute(model_id, input_dataset, output_dataset)
-                    acl.rt.memcpy(out_host_ptr, output_size,
-                                  output_dev_ptr, output_size, 2)
-                    raw = acl.util.ptr_to_bytes(out_host_ptr, output_size)
+                with engine.npu_lock:
+                    p = engine.acl.util.numpy_to_ptr(inp)
+                    engine.acl.rt.memcpy(engine.input_dev_ptr, engine.img_size, p, engine.img_size, 1)
+                    engine.acl.mdl.execute(engine.model_id, engine.input_dataset, engine.output_dataset)
+                    engine.acl.rt.memcpy(engine.out_host_ptr, engine.output_size,
+                                  engine.output_dev_ptr, engine.output_size, 2)
+                    raw = engine.acl.util.ptr_to_bytes(engine.out_host_ptr, engine.output_size)
                     arr = np.frombuffer(raw, dtype=np.float32) if raw else np.array([])
 
                 try:
-                    _, kp = parse_npu_output(arr, conf_threshold=0.15)
+                    _, kp = engine.parse_npu_output(arr, conf_threshold=0.15)
                 except Exception:
                     kp = None
             else:
