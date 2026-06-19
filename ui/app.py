@@ -49,6 +49,8 @@ class PostureApp:
         self._bad_posture_start = 0.0
         self._bad_posture_delay = 3  # 秒
         self._alert_active = False   # 当前是否在告警中
+        self._buzzer_on = True       # 蜂鸣器开关
+        self._motor_on = False       # 马达开关（默认关）
 
         # 构建主窗口
         self.root = tk.Tk()
@@ -190,6 +192,27 @@ class PostureApp:
             command=self._toggle_page
         )
         self.page_btn.pack(fill='x', padx=pad)
+
+        # ---- 蜂鸣器 + 马达开关 ----
+        tk.Frame(p, bg=T.IVORY, height=16).pack()
+        sw_frame = tk.Frame(p, bg=T.IVORY)
+        sw_frame.pack(fill='x', padx=pad)
+
+        self.buzzer_btn = tk.Button(
+            sw_frame, text="🔔 蜂鸣器: 开", font=(T.FONT, 11, "bold"),
+            fg=T.WHITE, bg=T.SAGE, relief="flat", bd=0,
+            padx=10, pady=8, cursor="hand2",
+            command=self._toggle_buzzer
+        )
+        self.buzzer_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
+
+        self.motor_btn = tk.Button(
+            sw_frame, text="📳 马达: 关", font=(T.FONT, 11, "bold"),
+            fg=T.CHARCOAL, bg=T.MIST, relief="flat", bd=0,
+            padx=10, pady=8, cursor="hand2",
+            command=self._toggle_motor
+        )
+        self.motor_btn.pack(side='left', fill='x', expand=True, padx=(4, 0))
 
         # ---- FPS + 退出（底部） ----
         bottom = tk.Frame(p, bg=T.IVORY)
@@ -480,11 +503,12 @@ class PostureApp:
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
-                    # 触发告警
-                    if "驼背" in status or "倾斜" in status:
-                        self.m0.alert('severe')
-                    else:
-                        self.m0.alert('warning')
+                    # 触发告警（蜂鸣器仅在开启时工作）
+                    if self._buzzer_on:
+                        if "驼背" in status or "倾斜" in status:
+                            self.m0.alert('severe')
+                        else:
+                            self.m0.alert('warning')
                     # 记录：开始事件（首次触发时）
                     if not self._alert_active:
                         self.records.start_event(status, na, sa)
@@ -585,6 +609,23 @@ class PostureApp:
         v = float(val)
         PostureConfig.TH_SPINE = v
         self._spine_th_label.config(text=f"{v:.1f}°")
+
+    def _toggle_buzzer(self):
+        self._buzzer_on = not self._buzzer_on
+        if self._buzzer_on:
+            self.buzzer_btn.config(text="🔔 蜂鸣器: 开", bg=T.SAGE, fg=T.WHITE)
+        else:
+            self.buzzer_btn.config(text="🔔 蜂鸣器: 关", bg=T.MIST, fg=T.CHARCOAL)
+            self.m0.buzzer(False)
+
+    def _toggle_motor(self):
+        self._motor_on = not self._motor_on
+        self.m0._motor_enabled = self._motor_on
+        if self._motor_on:
+            self.motor_btn.config(text="📳 马达: 开", bg=T.SAGE, fg=T.WHITE)
+        else:
+            self.motor_btn.config(text="📳 马达: 关", bg=T.MIST, fg=T.CHARCOAL)
+            self.m0.motor(False)
 
     def _toggle_fs(self):
         self.root.attributes('-fullscreen',
