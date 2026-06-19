@@ -95,7 +95,7 @@ class PostureApp:
         # 暂停遮罩
         self.pause_label = tk.Label(
             video_frame, text="已暂停检测",
-            font=(T.FONT, 42, "bold"), fg=T.WHITE, bg=T.BLACK, justify="center"
+            font=(T.FONT, 46, "bold"), fg=T.WHITE, bg=T.BLACK, justify="center"
         )
 
         # -- 右侧：控制面板 --
@@ -109,12 +109,12 @@ class PostureApp:
         head.pack(fill='x', padx=pad, pady=(40, 0))
         head.pack_propagate(False)
 
-        tk.Label(head, text="Ascend NPU", font=(T.FONT, 13, "bold"),
+        tk.Label(head, text="Ascend NPU", font=(T.FONT, 15, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x')
-        tk.Label(head, text="姿态检测", font=(T.FONT, 36, "bold"),
+        tk.Label(head, text="姿态检测", font=(T.FONT, 40, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
         tk.Label(head, text="实时脊柱监测",
-                 font=(T.FONT, 14), fg=T.WARMGRY, bg=T.IVORY,
+                 font=(T.FONT, 15), fg=T.WARMGRY, bg=T.IVORY,
                  anchor='w').pack(fill='x')
 
         # ---- 状态胶囊 ----
@@ -132,21 +132,21 @@ class PostureApp:
 
         neck_col = tk.Frame(gauges, bg=T.IVORY)
         neck_col.pack(side='left', expand=True, fill='both')
-        tk.Label(neck_col, text="颈部", font=(T.FONT, 14, "bold"),
+        tk.Label(neck_col, text="颈部", font=(T.FONT, 15, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
         self.neck_gauge = ArcGauge(neck_col, width=175, height=150)
         self.neck_gauge.pack()
         tk.Label(neck_col, text="头部前倾角度",
-                 font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY).pack()
+                 font=(T.FONT, 13), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         spine_col = tk.Frame(gauges, bg=T.IVORY)
         spine_col.pack(side='left', expand=True, fill='both')
-        tk.Label(spine_col, text="脊柱", font=(T.FONT, 14, "bold"),
+        tk.Label(spine_col, text="脊柱", font=(T.FONT, 15, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
         self.spine_gauge = ArcGauge(spine_col, width=175, height=150)
         self.spine_gauge.pack()
         tk.Label(spine_col, text="驼背 / 圆肩",
-                 font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY).pack()
+                 font=(T.FONT, 13), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         # ---- 分割线 ----
         tk.Frame(p, bg=T.IVORY, height=30).pack()
@@ -154,7 +154,7 @@ class PostureApp:
 
         # ---- 阈值滑块 ----
         tk.Frame(p, bg=T.IVORY, height=18).pack()
-        tk.Label(p, text="告警阈值", font=(T.FONT, 14, "bold"),
+        tk.Label(p, text="告警阈值", font=(T.FONT, 15, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad)
         tk.Frame(p, bg=T.IVORY, height=12).pack()
 
@@ -175,7 +175,7 @@ class PostureApp:
         # ---- 启停按钮 ----
         tk.Frame(p, bg=T.IVORY, height=22).pack()
         self.btn = tk.Button(
-            p, text="停止检测", font=(T.FONT, 16, "bold"),
+            p, text="停止检测", font=(T.FONT, 18, "bold"),
             fg=T.WHITE, bg=T.ROSE, relief="flat", bd=0,
             activeforeground=T.WHITE, activebackground="#B85A50",
             padx=24, pady=18, cursor="hand2",
@@ -187,7 +187,7 @@ class PostureApp:
         tk.Frame(p, bg=T.IVORY, height=16).pack()
         self.page_btn = tk.Button(
             p, text="检测记录",
-            font=(T.FONT, 12), fg=T.CHARCOAL, bg=T.MIST,
+            font=(T.FONT, 13), fg=T.CHARCOAL, bg=T.MIST,
             relief="flat", padx=14, pady=10, cursor="hand2",
             command=self._toggle_page
         )
@@ -199,7 +199,7 @@ class PostureApp:
         sw_frame.pack(fill='x', padx=pad)
 
         self.buzzer_btn = tk.Button(
-            sw_frame, text="🔔 蜂鸣器: 开", font=(T.FONT, 11, "bold"),
+            sw_frame, text="🔔 蜂鸣器: 开", font=(T.FONT, 12, "bold"),
             fg=T.WHITE, bg=T.SAGE, relief="flat", bd=0,
             padx=10, pady=8, cursor="hand2",
             command=self._toggle_buzzer
@@ -207,7 +207,7 @@ class PostureApp:
         self.buzzer_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
 
         self.motor_btn = tk.Button(
-            sw_frame, text="📳 马达: 关", font=(T.FONT, 11, "bold"),
+            sw_frame, text="📳 马达: 关", font=(T.FONT, 12, "bold"),
             fg=T.CHARCOAL, bg=T.MIST, relief="flat", bd=0,
             padx=10, pady=8, cursor="hand2",
             command=self._toggle_motor
@@ -218,11 +218,11 @@ class PostureApp:
         bottom = tk.Frame(p, bg=T.IVORY)
         bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 30))
 
-        self.fps_label = tk.Label(bottom, text="— 帧/秒", font=(T.FONT, 12),
+        self.fps_label = tk.Label(bottom, text="— 帧/秒", font=(T.FONT, 13),
                                    fg=T.WARMGRY, bg=T.IVORY)
         self.fps_label.pack(side='left')
 
-        tk.Button(bottom, text="退出", font=(T.FONT, 12),
+        tk.Button(bottom, text="退出", font=(T.FONT, 13),
                   fg=T.WARMGRY, bg=T.IVORY,
                   activeforeground=T.CHARCOAL, activebackground=T.MIST,
                   relief="flat", padx=8, pady=4,
@@ -245,7 +245,7 @@ class PostureApp:
         tk.Label(top, text="检测记录", font=(T.FONT, 28, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w'
                  ).place(x=pad, y=18)
-        tk.Label(top, text="不良姿态检测历史", font=(T.FONT, 12),
+        tk.Label(top, text="不良姿态检测历史", font=(T.FONT, 13),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w'
                  ).place(x=pad, y=60)
 
@@ -253,7 +253,7 @@ class PostureApp:
         total = len(self.records.get_all())
         tk.Label(top, text=f"共 {total} 条记录", font=(T.FONT, 13),
                  fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 280, y=55)
-        tk.Button(top, text="全部清除", font=(T.FONT, 12),
+        tk.Button(top, text="全部清除", font=(T.FONT, 13),
                   fg=T.ROSE, bg=T.IVORY,
                   activeforeground=T.WHITE, activebackground=T.ROSE,
                   relief="flat", padx=8, pady=2, cursor="hand2",
@@ -271,13 +271,13 @@ class PostureApp:
         bar.pack_propagate(False)
 
         tk.Button(bar, text="← 返回检测",
-                  font=(T.FONT, 14, "bold"), fg=T.WHITE, bg=T.SAGE,
+                  font=(T.FONT, 15, "bold"), fg=T.WHITE, bg=T.SAGE,
                   relief="flat", padx=24, pady=14, cursor="hand2",
                   command=self._toggle_page
                   ).place(x=pad, y=12)
 
         tk.Button(bar, text="全部清除",
-                  font=(T.FONT, 12), fg=T.ROSE, bg=T.IVORY,
+                  font=(T.FONT, 13), fg=T.ROSE, bg=T.IVORY,
                   activeforeground=T.WHITE, activebackground=T.ROSE,
                   relief="flat", padx=16, pady=10, cursor="hand2",
                   command=self._clear_all_records
@@ -330,7 +330,7 @@ class PostureApp:
 
             # 状态标签
             short = str(status).replace("Warning: ", "").replace("!", "")
-            tk.Label(card, text=short, font=(T.FONT, 13, "bold"),
+            tk.Label(card, text=short, font=(T.FONT, 15, "bold"),
                      fg=T.CHARCOAL, bg=T.CREAM
                      ).place(x=14, y=4, width=260)
 
@@ -341,7 +341,7 @@ class PostureApp:
                 time_str = f"{r['start']} — {r['end']}  ({dur_str})"
             else:
                 time_str = r.get('time', r.get('start', '?'))
-            tk.Label(card, text=time_str, font=(T.FONT, 12),
+            tk.Label(card, text=time_str, font=(T.FONT, 13),
                      fg=T.WARMGRY, bg=T.CREAM
                      ).place(x=14, y=28, width=400)
 
@@ -353,7 +353,7 @@ class PostureApp:
                      ).place(x=card_w - 250, y=16, width=130)
 
             # 删除
-            btn = tk.Button(card, text="×", font=(T.FONT, 16, "bold"),
+            btn = tk.Button(card, text="×", font=(T.FONT, 18, "bold"),
                             fg=T.WARMGRY, bg=T.CREAM,
                             activeforeground=T.ROSE, activebackground=T.MIST,
                             relief="flat", bd=0, padx=10, pady=4, cursor="hand2",
