@@ -44,6 +44,7 @@ class M0Controller:
         self._alert_level = "none"  # 当前告警等级
         self._alert_running = False
         self._motor_enabled = False  # 马达暂禁用
+        self.buzzer_enabled = True   # UI 蜂鸣器开关
 
     # ---- 连接 ----
     def connect(self):
@@ -114,8 +115,9 @@ class M0Controller:
             on_ms, off_ms, motor_mode = self.PATTERNS[self._alert_level]
             if on_ms == 0:
                 break
-            # 蜂鸣器开
-            self.buzzer(True)
+            # 蜂鸣器开（仅开关开启时）
+            if self.buzzer_enabled:
+                self.buzzer(True)
             # 马达：continuous 持续振 / pulse 跟随蜂鸣器节奏
             if motor_mode == "continuous" and self._motor_enabled:
                 self.motor(True)
@@ -123,7 +125,8 @@ class M0Controller:
                 self.motor(True)
             time.sleep(on_ms / 1000.0)
             # 蜂鸣器关
-            self.buzzer(False)
+            if self.buzzer_enabled:
+                self.buzzer(False)
             # 马达：continuous 不关 / pulse 跟随关
             if motor_mode == "pulse" and self._motor_enabled:
                 self.motor(False)

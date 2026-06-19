@@ -495,12 +495,11 @@ class PostureApp:
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
-                    # 触发告警（蜂鸣器仅在开启时工作）
-                    if self._buzzer_on:
-                        if "驼背" in status or "倾斜" in status:
-                            self.m0.alert('severe')
-                        else:
-                            self.m0.alert('warning')
+                    # 触发告警（M0 内部根据 buzzer_enabled / _motor_enabled 决定输出）
+                    if "驼背" in status or "倾斜" in status:
+                        self.m0.alert('severe')
+                    else:
+                        self.m0.alert('warning')
                     # 记录：开始事件（首次触发时）
                     if not self._alert_active:
                         self.records.start_event(status, na, sa)
@@ -607,11 +606,12 @@ class PostureApp:
 
     def _toggle_buzzer(self):
         self._buzzer_on = not self._buzzer_on
+        self.m0.buzzer_enabled = self._buzzer_on
         if self._buzzer_on:
             self.buzzer_btn.config(text="蜂鸣器: 开", bg=T.SAGE, fg=T.WHITE)
         else:
             self.buzzer_btn.config(text="蜂鸣器: 关", bg=T.MIST, fg=T.CHARCOAL)
-            self.m0.buzzer(False)
+            self.m0.alert('none')  # 停止告警线程
 
     def _toggle_motor(self):
         self._motor_on = not self._motor_on
