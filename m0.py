@@ -24,7 +24,7 @@ class M0Controller:
 
     # 告警模式配置：(蜂鸣器开ms, 蜂鸣器关ms, 是否振动)
     PATTERNS = {
-        "severe": (200, 200, True),     # 急促
+        "severe": (200, 200, False),    # 急促（马达暂禁用）
         "warning": (500, 500, False),   # 平缓
         "good": (0, 0, False),          # 关闭
         "none": (0, 0, False),          # 关闭
@@ -42,6 +42,7 @@ class M0Controller:
         self._alert_thread = None
         self._alert_level = "none"  # 当前告警等级
         self._alert_running = False
+        self._motor_enabled = False  # 马达暂禁用
 
     # ---- 连接 ----
     def connect(self):
@@ -113,12 +114,13 @@ class M0Controller:
                 break
             # 开
             self.buzzer(True)
-            if vibrate:
+            if vibrate and self._motor_enabled:
                 self.motor(True)
             time.sleep(on_ms / 1000.0)
             # 关
             self.buzzer(False)
-            self.motor(False)
+            if self._motor_enabled:
+                self.motor(False)
             time.sleep(off_ms / 1000.0)
 
     # ---- 基础命令 ----
@@ -127,8 +129,9 @@ class M0Controller:
         self._send("BUZZER ON" if on else "BUZZER OFF")
 
     def motor(self, on=True):
-        """控制振动马达 PB20 高/低电平"""
-        self._send("MOTOR ON" if on else "MOTOR OFF")
+        """控制振动马达 PB20 高/低电平（禁用时不发送）"""
+        if self._motor_enabled:
+            self._send("MOTOR ON" if on else "MOTOR OFF")
 
     def check(self):
         """查询当前状态，返回字符串如 'BUZZER:ON MOTOR:OFF'，失败返回 None"""
@@ -147,7 +150,8 @@ class M0Controller:
     def all_off(self):
         """关闭所有输出"""
         self.buzzer(False)
-        self.motor(False)
+        if self._motor_enabled:
+            self.motor(False)
 
     # ---- 内部 ----
     def _send(self, cmd):
