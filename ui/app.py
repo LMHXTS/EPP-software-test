@@ -203,82 +203,159 @@ class PostureApp:
                   ).pack(side='right')
 
     def _build_records_page(self):
-        """构建检测记录页面"""
+        """构建检测记录页面（卡片式布局 + 逐条删除）"""
         p = tk.Frame(self.root, bg=T.IVORY, width=self.sw, height=self.sh)
         p.place(x=0, y=0)
         p.pack_propagate(False)
+        pad = 50
 
-        pad = 40
+        # ---- 顶部 ----
+        top = tk.Frame(p, bg=T.IVORY, height=100)
+        top.pack(fill='x', padx=pad, pady=(pad, 0))
+        top.pack_propagate(False)
 
-        # 标题
-        tk.Label(p, text="Detection Records", font=(T.FONT, 28, "bold"),
-                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad, pady=(pad, 10))
-        tk.Label(p, text="Posture event history",
+        tk.Label(top, text="Detection Records", font=(T.FONT, 30, "bold"),
+                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
+        tk.Label(top, text="不良姿势事件历史",
                  font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
-                 anchor='w').pack(fill='x', padx=pad, pady=(0, 20))
+                 anchor='w').pack(fill='x')
 
-        # 列表区
-        list_frame = tk.Frame(p, bg=T.CREAM,
-                               width=self.sw - pad * 2, height=self.sh - 200)
-        list_frame.pack(padx=pad)
-        list_frame.pack_propagate(False)
+        self._records_empty = tk.Label(top, text="暂无记录",
+                                        font=(T.FONT, 14), fg=T.WARMGRY, bg=T.IVORY)
+        self._records_empty.pack_forget()
 
-        self.records_list = tk.Listbox(
-            list_frame,
-            font=(T.MONO, 12),
-            bg=T.CREAM, fg=T.CHARCOAL,
-            selectbackground=T.SAGE, selectforeground=T.WHITE,
-            relief="flat", bd=0,
-            highlightthickness=0
-        )
-        scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.records_list.yview)
-        self.records_list.configure(yscrollcommand=scroll.set)
-        self.records_list.pack(side='left', fill='both', expand=True)
-        scroll.pack(side='right', fill='y')
+        # ---- 可滚动卡片区域 ----
+        canvas = tk.Canvas(p, bg=T.IVORY, highlightthickness=0,
+                            width=self.sw - pad * 2, height=self.sh - 240)
+        scroll = ttk.Scrollbar(p, orient="vertical", command=canvas.yview)
+        self._rec_scroll_frame = tk.Frame(canvas, bg=T.IVORY)
 
-        # 底部按钮
-        bottom = tk.Frame(p, bg=T.IVORY)
-        bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 30))
+        self._rec_scroll_frame.bind("<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=self._rec_scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
 
-        tk.Button(bottom, text="BACK TO DETECTION",
-                  font=(T.FONT, 13, "bold"), fg=T.WHITE, bg=T.SAGE,
-                  relief="flat", padx=20, pady=12, cursor="hand2",
+        # 鼠标滚轮支持
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
+
+        canvas.pack(side='left', fill='both', expand=True, padx=(pad, 0))
+        scroll.pack(side='right', fill='y', padx=(0, pad))
+
+        self._rec_canvas = canvas
+
+        # ---- 底部按钮栏 ----
+        bar = tk.Frame(p, bg=T.IVORY, height=60)
+        bar.pack(side='bottom', fill='x', padx=pad, pady=(10, 30))
+        bar.pack_propagate(False)
+
+        tk.Button(bar, text="← BACK TO DETECTION",
+                  font=(T.FONT, 14, "bold"), fg=T.WHITE, bg=T.SAGE,
+                  relief="flat", padx=24, pady=14, cursor="hand2",
                   command=self._toggle_page
                   ).pack(side='left')
 
-        tk.Button(bottom, text="CLEAR RECORDS",
-                  font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY,
-                  relief="flat", padx=10, pady=8, cursor="hand2",
-                  command=lambda: (self.records.clear(), self._refresh_records())
+        tk.Button(bar, text="CLEAR ALL",
+                  font=(T.FONT, 12), fg=T.ROSE, bg=T.IVORY,
+                  activeforeground=T.WHITE, activebackground=T.ROSE,
+                  relief="flat", padx=16, pady=10, cursor="hand2",
+                  command=self._clear_all_records
                   ).pack(side='right')
 
+        # 每页来源
+        tk.Label(bar, text=f"共 {len(self.records.get_all())} 条",
+                 font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY).pack(side='right', padx=20)
+
         self._records_page = p
+        self._refresh_records()
 
     def _refresh_records(self):
-        """刷新记录列表"""
-        if not hasattr(self, 'records_list'):
-            return
-        self.records_list.delete(0, 'end')
-        for r in self.records.get_all()[-100:]:  # 最近 100 条
-            line = f"{r['time']}  {r['status']:<30}  N:{r['neck_angle']:.1f}  S:{r['spine_angle']:.1f}"
-            self.records_list.insert('end', line)
+        """刷新记录卡片列表"""
+        for w in self._rec_scroll_frame.winfo_children():
+            w.destroy()
+
+        records = self.records.get_all()
+        if not records:
+            self._records_empty.place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            self._records_empty.place_forget()
+
+        pad = 8
+        card_w = self.sw - 130  # 左 margin 50 + 右 scrollbar ~30 + padding
+
+        for i, r in enumerate(records):
+            card = tk.Frame(self._rec_scroll_frame, bg=T.CREAM,
+                             width=card_w, height=52)
+            card.pack(fill='x', padx=0, pady=4)
+            card.pack_propagate(False)
+
+            # 左侧竖线（颜色标识）
+            status = r["status"]
+            if "Slouching" in status or "Tilt" in status:
+                bar_c = T.ROSE
+            elif "Hunchback" in status:
+                bar_c = T.CORAL
+            else:
+                bar_c = T.CORAL
+            tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=52)
+
+            # 时间
+            tk.Label(card, text=r["time"], font=(T.FONT, 10),
+                     fg=T.WARMGRY, bg=T.CREAM, anchor='w'
+                     ).place(x=14, y=4, width=80)
+
+            # 状态标签
+            short_status = status.replace("Warning: ", "").replace("!", "")
+            tk.Label(card, text=short_status, font=(T.FONT, 12, "bold"),
+                     fg=T.CHARCOAL, bg=T.CREAM, anchor='w'
+                     ).place(x=14, y=24, width=260)
+
+            # 角度数值
+            angles = f"N:{r['neck_angle']:.1f}°  S:{r['spine_angle']:.1f}°"
+            tk.Label(card, text=angles, font=(T.FONT, 11),
+                     fg=T.WARMGRY, bg=T.CREAM, anchor='e'
+                     ).place(x=card_w - 200, y=16, width=110)
+
+            # 删除按钮（右对齐，始终可见）
+            btn = tk.Button(card, text="×", font=(T.FONT, 15, "bold"),
+                            fg=T.WARMGRY, bg=T.CREAM,
+                            activeforeground=T.ROSE, activebackground=T.MIST,
+                            relief="flat", bd=0, padx=8, pady=4,
+                            cursor="hand2",
+                            command=lambda idx=i: self._delete_record(idx))
+            btn.place(x=card_w - 50, y=10, width=36, height=32)
+
+    def _delete_record(self, idx):
+        """删除第 idx 条记录"""
+        records = self.records.get_all()
+        if 0 <= idx < len(records):
+            del self.records._records[len(self.records._records) - 1 - idx]
+            self.records._save()
+            self._refresh_records()
+
+    def _clear_all_records(self):
+        """清空全部记录"""
+        self.records.clear()
+        self._refresh_records()
 
     def _toggle_page(self):
         """切换检测页 / 记录页"""
         if self._page == "detect":
             self._page = "records"
-            # 隐藏检测 UI
             for w in self.root.place_slaves():
                 w.place_forget()
-            # 显示记录页
+            try:
+                self.root.unbind_all("<MouseWheel>")
+            except Exception:
+                pass
             self._build_records_page()
-            self._refresh_records()
             self.root.update()
         else:
             self._page = "detect"
+            self.root.unbind_all("<MouseWheel>")
             self._records_page.destroy()
             delattr(self, '_records_page')
-            # 重新显示检测 UI
             self._build_ui()
             self.root.update()
 
@@ -461,9 +538,14 @@ class PostureApp:
 
         self.fps_label.config(text=f"{fps:.1f} fps")
 
-        # 如果在记录页，每秒刷新一次列表
+        # 如果在记录页，每 2 秒静默刷新
         if self._page == "records" and hasattr(self, '_records_page'):
-            self._refresh_records()
+            if not hasattr(self, '_last_rec_refresh'):
+                self._last_rec_refresh = 0
+            now = time.perf_counter()
+            if now - self._last_rec_refresh > 2:
+                self._refresh_records()
+                self._last_rec_refresh = now
 
         self.root.after(33, self._refresh_display)
 
