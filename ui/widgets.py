@@ -38,10 +38,10 @@ class ArcGauge(tk.Canvas):
                          outline=c, width=10)
 
         # 中心数值文字
-        self.create_text(cx, cy - 20, text=f"{self.value:.1f}",
-                          font=(T.FONT, 38, "bold"), fill=T.CHARCOAL)
-        self.create_text(cx, cy + 18, text="度",
-                          font=(T.FONT, 14), fill=T.WARMGRY)
+        self.create_text(cx, cy - 22, text=f"{self.value:.1f}",
+                          font=(T.FONT, 48, "bold"), fill=T.CHARCOAL)
+        self.create_text(cx, cy + 20, text="度",
+                          font=(T.FONT, 18), fill=T.WARMGRY)
 
     def set(self, value, threshold):
         old_v, old_t = self.value, self.threshold
@@ -68,7 +68,7 @@ class StatusPill(tk.Canvas):
         self._rounded_rect(2, 2, self.w - 2, self.h - 2, r, fill=self.color)
         # 文字
         self.create_text(self.w / 2, self.h / 2, text=self.text,
-                          font=(T.FONT, 22, "bold"), fill=T.WHITE)
+                          font=(T.FONT, 28, "bold"), fill=T.WHITE)
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
         """用四角圆形 + 中间矩形模拟圆角长方形"""
