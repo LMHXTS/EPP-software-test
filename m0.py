@@ -22,12 +22,13 @@ except ImportError:
 class M0Controller:
     """M0 核心板控制器：蜂鸣器 + 振动马达 + 告警模式"""
 
-    # 告警模式配置：(蜂鸣器开ms, 蜂鸣器关ms, 是否振动)
+    # 告警模式：(蜂鸣器开ms, 蜂鸣器关ms, 马达模式)
+    # 马达模式: "off"=关闭, "continuous"=持续振动, "pulse"=跟随蜂鸣器节奏
     PATTERNS = {
-        "severe": (200, 200, False),    # 急促（马达暂禁用）
-        "warning": (500, 500, False),   # 平缓
-        "good": (0, 0, False),          # 关闭
-        "none": (0, 0, False),          # 关闭
+        "severe": (200, 200, "continuous"),
+        "warning": (500, 500, "pulse"),
+        "good": (0, 0, "off"),
+        "none": (0, 0, "off"),
     }
 
     def __init__(self, port="/dev/ttyUSB0", baud=115200, timeout=0.5):
@@ -100,26 +101,31 @@ class M0Controller:
         self._alert_thread.start()
 
     def _stop_alert(self):
-        """停止告警后台线程"""
+        """停止告警后台线程，关闭所有输出"""
         self._alert_running = False
         if self._alert_thread:
             self._alert_thread.join(timeout=1)
             self._alert_thread = None
+        self.all_off()
 
     def _alert_loop(self):
-        """后台线程：按当前等级循环开关蜂鸣器和马达"""
+        """后台线程：按当前等级循环蜂鸣器，马达按模式独立控制"""
         while self._alert_running:
-            on_ms, off_ms, vibrate = self.PATTERNS[self._alert_level]
+            on_ms, off_ms, motor_mode = self.PATTERNS[self._alert_level]
             if on_ms == 0:
                 break
-            # 开
+            # 蜂鸣器开
             self.buzzer(True)
-            if vibrate and self._motor_enabled:
+            # 马达：continuous 持续振 / pulse 跟随蜂鸣器节奏
+            if motor_mode == "continuous" and self._motor_enabled:
+                self.motor(True)
+            elif motor_mode == "pulse" and self._motor_enabled:
                 self.motor(True)
             time.sleep(on_ms / 1000.0)
-            # 关
+            # 蜂鸣器关
             self.buzzer(False)
-            if self._motor_enabled:
+            # 马达：continuous 不关 / pulse 跟随关
+            if motor_mode == "pulse" and self._motor_enabled:
                 self.motor(False)
             time.sleep(off_ms / 1000.0)
 
@@ -148,10 +154,9 @@ class M0Controller:
                 return None
 
     def all_off(self):
-        """关闭所有输出"""
+        """关闭所有输出。马达仅在其开关开启时才发送 OFF"""
         self.buzzer(False)
-        if self._motor_enabled:
-            self.motor(False)
+        self.motor(False)  # motor() 内部已判断 _motor_enabled
 
     # ---- 内部 ----
     def _send(self, cmd):
