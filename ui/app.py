@@ -22,6 +22,8 @@ from posture import analyze_spine_posture
 from renderer import render_ui
 from ui.theme import T
 from ui.widgets import ArcGauge, StatusPill
+from m0 import M0Controller
+from records import PostureRecords
 
 
 class PostureApp:
@@ -39,6 +41,11 @@ class PostureApp:
         self._fps = 0.0
         self._paused = False
 
+        # M0 核心板 + 检测记录
+        self.m0 = M0Controller()
+        self.m0.connect()
+        self.records = PostureRecords()
+
         # 构建主窗口
         self.root = tk.Tk()
         self.root.title("Posture")
@@ -51,6 +58,8 @@ class PostureApp:
         self.sh = self.root.winfo_screenheight()
         self.pw = int(self.sw * 0.32)
         self.vw = self.sw - self.pw
+
+        self._page = "detect"  # 当前页面: detect / records
 
         self._build_ui()
         self._init_npu()
@@ -165,6 +174,16 @@ class PostureApp:
         )
         self.btn.pack(fill='x', padx=pad)
 
+        # ---- 页面切换按钮 ----
+        tk.Frame(p, bg=T.IVORY, height=10).pack()
+        self.page_btn = tk.Button(
+            p, text="DETECTION RECORDS",
+            font=(T.FONT, 11), fg=T.CHARCOAL, bg=T.MIST,
+            relief="flat", padx=14, pady=8, cursor="hand2",
+            command=self._toggle_page
+        )
+        self.page_btn.pack(fill='x', padx=pad)
+
         # ---- FPS + 退出（底部） ----
         bottom = tk.Frame(p, bg=T.IVORY)
         bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 24))
@@ -179,6 +198,86 @@ class PostureApp:
                   relief="flat", padx=8, pady=4,
                   cursor="hand2", command=self._exit
                   ).pack(side='right')
+
+    def _build_records_page(self):
+        """构建检测记录页面"""
+        p = tk.Frame(self.root, bg=T.IVORY, width=self.sw, height=self.sh)
+        p.place(x=0, y=0)
+        p.pack_propagate(False)
+
+        pad = 40
+
+        # 标题
+        tk.Label(p, text="Detection Records", font=(T.FONT, 28, "bold"),
+                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad, pady=(pad, 10))
+        tk.Label(p, text="Posture event history",
+                 font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
+                 anchor='w').pack(fill='x', padx=pad, pady=(0, 20))
+
+        # 列表区
+        list_frame = tk.Frame(p, bg=T.CREAM,
+                               width=self.sw - pad * 2, height=self.sh - 200)
+        list_frame.pack(padx=pad)
+        list_frame.pack_propagate(False)
+
+        self.records_list = tk.Listbox(
+            list_frame,
+            font=(T.MONO, 12),
+            bg=T.CREAM, fg=T.CHARCOAL,
+            selectbackground=T.SAGE, selectforeground=T.WHITE,
+            relief="flat", bd=0,
+            highlightthickness=0
+        )
+        scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.records_list.yview)
+        self.records_list.configure(yscrollcommand=scroll.set)
+        self.records_list.pack(side='left', fill='both', expand=True)
+        scroll.pack(side='right', fill='y')
+
+        # 底部按钮
+        bottom = tk.Frame(p, bg=T.IVORY)
+        bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 30))
+
+        tk.Button(bottom, text="BACK TO DETECTION",
+                  font=(T.FONT, 13, "bold"), fg=T.WHITE, bg=T.SAGE,
+                  relief="flat", padx=20, pady=12, cursor="hand2",
+                  command=self._toggle_page
+                  ).pack(side='left')
+
+        tk.Button(bottom, text="CLEAR RECORDS",
+                  font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY,
+                  relief="flat", padx=10, pady=8, cursor="hand2",
+                  command=lambda: (self.records.clear(), self._refresh_records())
+                  ).pack(side='right')
+
+        self._records_page = p
+
+    def _refresh_records(self):
+        """刷新记录列表"""
+        if not hasattr(self, 'records_list'):
+            return
+        self.records_list.delete(0, 'end')
+        for r in self.records.get_all()[-100:]:  # 最近 100 条
+            line = f"{r['time']}  {r['status']:<30}  N:{r['neck_angle']:.1f}  S:{r['spine_angle']:.1f}"
+            self.records_list.insert('end', line)
+
+    def _toggle_page(self):
+        """切换检测页 / 记录页"""
+        if self._page == "detect":
+            self._page = "records"
+            # 隐藏检测 UI
+            for w in self.root.place_slaves():
+                w.place_forget()
+            # 显示记录页
+            self._build_records_page()
+            self._refresh_records()
+            self.root.update()
+        else:
+            self._page = "detect"
+            self._records_page.destroy()
+            delattr(self, '_records_page')
+            # 重新显示检测 UI
+            self._build_ui()
+            self.root.update()
 
     def _div(self, parent, pad):
         """细线分割器"""
@@ -288,6 +387,17 @@ class PostureApp:
             if fc % 100 == 0 or (fc < 10 and kp is None):
                 print(f"[NPU] frame={fc} status={status} fps={fps:.1f}")
 
+            # M0 告警 + 检测记录
+            if "Slouching" in status or "Tilt" in status:
+                self.m0.alert('severe')
+            elif "Warning" in status:
+                self.m0.alert('warning')
+            elif status == "Standard Posture":
+                self.m0.alert('good')
+            else:
+                self.m0.alert('none')
+            self.records.add(status, na, sa)
+
             # 更新线程安全共享状态
             with self._lock:
                 self._ppm_bytes = ppm.tobytes()
@@ -341,6 +451,10 @@ class PostureApp:
 
         self.fps_label.config(text=f"{fps:.1f} fps")
 
+        # 如果在记录页，每秒刷新一次列表
+        if self._page == "records" and hasattr(self, '_records_page'):
+            self._refresh_records()
+
         self.root.after(33, self._refresh_display)
 
     # ================================================================
@@ -371,6 +485,8 @@ class PostureApp:
 
     def _exit(self):
         self._running = False
+        self.m0.alert('none')
+        self.m0.close()
         self.root.destroy()
 
     def run(self):
