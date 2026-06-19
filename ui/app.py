@@ -73,8 +73,13 @@ class PostureApp:
     #  UI 构建
     # ================================================================
     def _build_ui(self):
+        # 检测页面容器
+        self._detect_frame = tk.Frame(self.root, bg=T.BARK, width=self.sw, height=self.sh)
+        self._detect_frame.place(x=0, y=0)
+        root = self._detect_frame  # 子控件都挂在容器上
+
         # -- 左侧：视频区域（深色包围） --
-        video_frame = tk.Frame(self.root, bg=T.BLACK, width=self.vw, height=self.sh)
+        video_frame = tk.Frame(root, bg=T.BLACK, width=self.vw, height=self.sh)
         video_frame.place(x=0, y=0)
         video_frame.pack_propagate(False)
 
@@ -92,7 +97,7 @@ class PostureApp:
         )
 
         # -- 右侧：控制面板 --
-        p = tk.Frame(self.root, bg=T.IVORY, width=self.pw, height=self.sh)
+        p = tk.Frame(self._detect_frame, bg=T.IVORY, width=self.pw, height=self.sh)
         p.place(x=self.vw, y=0)
         p.pack_propagate(False)
         pad = 28
@@ -208,6 +213,7 @@ class PostureApp:
         p = tk.Frame(self.root, bg=T.IVORY, width=self.sw, height=self.sh)
         p.place(x=0, y=0)
         p.pack_propagate(False)
+        self._records_frame = p
         pad = 60
 
         # ---------- 顶部固定栏 (0 ~ 100) ----------
@@ -275,7 +281,6 @@ class PostureApp:
         canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
         self._rec_canvas = canvas
 
-        self._records_page = p
         self._refresh_records()
 
     def _refresh_records(self):
@@ -343,24 +348,20 @@ class PostureApp:
         self._refresh_records()
 
     def _toggle_page(self):
-        """切换检测页 / 记录页"""
+        """切换检测页 / 记录页（持久容器，仅切换可见性）"""
         if self._page == "detect":
             self._page = "records"
-            for w in self.root.place_slaves():
-                w.place_forget()
-            try:
-                self.root.unbind_all("<MouseWheel>")
-            except Exception:
-                pass
-            self._build_records_page()
-            self.root.update()
+            self._detect_frame.place_forget()
+            if not hasattr(self, '_records_frame'):
+                self._build_records_page()
+            else:
+                self._records_frame.place(x=0, y=0)
+                self._refresh_records()
         else:
             self._page = "detect"
-            self.root.unbind_all("<MouseWheel>")
-            self._records_page.destroy()
-            delattr(self, '_records_page')
-            self._build_ui()
-            self.root.update()
+            if hasattr(self, '_records_frame'):
+                self._records_frame.place_forget()
+            self._detect_frame.place(x=0, y=0)
 
     def _div(self, parent, pad):
         """细线分割器"""
@@ -550,7 +551,7 @@ class PostureApp:
         self.fps_label.config(text=f"{fps:.1f} fps")
 
         # 如果在记录页，每 2 秒静默刷新
-        if self._page == "records" and hasattr(self, '_records_page'):
+        if self._page == "records" and hasattr(self, '_records_frame'):
             if not hasattr(self, '_last_rec_refresh'):
                 self._last_rec_refresh = 0
             now = time.perf_counter()
