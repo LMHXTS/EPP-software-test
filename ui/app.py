@@ -45,6 +45,9 @@ class PostureApp:
         self.m0 = M0Controller()
         self.m0.connect()
         self.records = PostureRecords()
+        # 告警延迟：不良姿势持续 X 秒后才触发
+        self._bad_posture_start = 0.0
+        self._bad_posture_delay = 3  # 秒
 
         # 构建主窗口
         self.root = tk.Tk()
@@ -387,16 +390,23 @@ class PostureApp:
             if fc % 100 == 0 or (fc < 10 and kp is None):
                 print(f"[NPU] frame={fc} status={status} fps={fps:.1f}")
 
-            # M0 告警 + 检测记录
-            if "Slouching" in status or "Tilt" in status:
-                self.m0.alert('severe')
-            elif "Warning" in status:
-                self.m0.alert('warning')
-            elif status == "Standard Posture":
-                self.m0.alert('good')
+            # M0 告警（延迟触发：不良姿势需持续 > self._bad_posture_delay 秒）
+            now = time.perf_counter()
+            if "Warning" in status:
+                if self._bad_posture_start == 0:
+                    self._bad_posture_start = now
+                elif now - self._bad_posture_start >= self._bad_posture_delay:
+                    if "Slouching" in status or "Tilt" in status:
+                        self.m0.alert('severe')
+                    else:
+                        self.m0.alert('warning')
+                    # 记录（仅警告）
+                    self.records.add(status, na, sa)
             else:
-                self.m0.alert('none')
-            self.records.add(status, na, sa)
+                if self._bad_posture_start > 0:
+                    # 不良姿势结束，重置
+                    self._bad_posture_start = 0
+                self.m0.alert('good' if status == "Standard Posture" else 'none')
 
             # 更新线程安全共享状态
             with self._lock:

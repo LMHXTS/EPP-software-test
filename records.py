@@ -20,14 +20,12 @@ class PostureRecords:
 
     # ---- 写入 ----
     def add(self, status, neck_angle, spine_angle):
-        """添加一条检测记录（自动去重 + 防抖）"""
-        # 只记录有意义的姿势变化
-        if status == self._last_status:
-            return  # 同状态不重复
-        # 同状态至少间隔 5 秒
+        """仅记录告警事件（不记 No Person / Standard Posture）"""
+        if "Warning" not in status:
+            return
+        # 防抖：同状态 5 秒内不重复
         now = time.time()
-        if now - self._last_record_time < 5:
-            # 但如果状态变化了，允许更新
+        if status == self._last_status and now - self._last_record_time < 5:
             return
 
         record = {
