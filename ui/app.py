@@ -252,13 +252,7 @@ class PostureApp:
         # 顶部清除按钮 + 总数
         total = len(self.records.get_all())
         tk.Label(top, text=f"共 {total} 条记录", font=(T.FONT, 13),
-                 fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 280, y=55)
-        tk.Button(top, text="全部清除", font=(T.FONT, 13),
-                  fg=T.ROSE, bg=T.IVORY,
-                  activeforeground=T.WHITE, activebackground=T.ROSE,
-                  relief="flat", padx=8, pady=2, cursor="hand2",
-                  command=self._clear_all_records
-                  ).place(x=self.sw - pad - 200, y=48)
+                 fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 120, y=55)
 
         # 空状态提示
         self._records_empty = tk.Label(p, text="暂无记录",
