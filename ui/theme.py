@@ -18,8 +18,8 @@ class T:
     WHITE    = "#FFFFFF"
     BLACK    = "#1A1816"
 
-    DISP_W   = 1280        # 视频渲染宽度
-    DISP_H   = 720         # 视频渲染高度
+    DISP_W   = 960         # 视频渲染宽度
+    DISP_H   = 540         # 视频渲染高度
 
     FONT     = "Lato"              # 主字体 — 温暖的现代人文无衬线体
     MONO     = "DejaVu Sans Mono"  # 等宽字体
