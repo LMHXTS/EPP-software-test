@@ -40,7 +40,7 @@ class ArcGauge(tk.Canvas):
         # 中心数值文字
         self.create_text(cx, cy - 16, text=f"{self.value:.1f}",
                           font=(T.FONT, 26, "bold"), fill=T.CHARCOAL)
-        self.create_text(cx, cy + 14, text="deg",
+        self.create_text(cx, cy + 14, text="度",
                           font=(T.FONT, 10), fill=T.WARMGRY)
 
     def set(self, value, threshold):

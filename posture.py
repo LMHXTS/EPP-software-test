@@ -22,7 +22,7 @@ def analyze_spine_posture(keypoints):
         p_sm = keypoints[PostureConfig.IDX_SPINE_MID]
         p_sb = keypoints[PostureConfig.IDX_SPINE_BASE]
     except IndexError:
-        return {"error": f"关键点不足，仅检测到 {len(keypoints)} 个"}
+        return {"error": f"关键点缺失，仅 {len(keypoints)} 个"}
 
     # 如果任一关键点坐标为 0，说明被遮挡或未检测到
     if any(p[0] == 0 for p in [p_nt, p_nb, p_sm, p_sb]):
@@ -39,22 +39,22 @@ def analyze_spine_posture(keypoints):
 
     # 根据阈值判定姿态
     if spine_angle > PostureConfig.TH_SPINE:
-        status = "Warning: Slouching!"       # 驼背 / 坐姿坍塌
+        status = u"⚠ 驼背"                    # 脊柱弯曲警告
         color = (0, 0, 255)                  # 红色
     elif neck_angle > PostureConfig.TH_NECK:
-        status = "Warning: Forward Head!"     # 脖子前倾
+        status = u"⚠ 头部前倾"                # 脖子前倾
         color = (0, 165, 255)                # 橙色
     elif curve_diff > PostureConfig.TH_CURVE:
-        status = "Warning: Hunchback!"        # 圆肩驼背
+        status = u"⚠ 圆肩驼背"                # 肩颈异常
         color = (0, 165, 255)
     else:
-        status = "Standard Posture"           # 标准姿势
+        status = u"✓ 标准姿势"                # 标准姿势
 
-    # 整体身体倾斜：脖顶与脊柱基底 X/Y 偏移比
+    # 整体身体倾斜
     dx_total = abs(p_nt[0] - p_sb[0])
     dy_total = abs(p_nt[1] - p_sb[1])
     if dy_total > 0 and (dx_total / dy_total) > 0.6:
-        status = "Warning: Severe Body Tilt!"  # 严重身体倾斜
+        status = u"⚠ 严重倾斜"                # 严重身体倾斜
         color = (0, 0, 255)
 
     return {

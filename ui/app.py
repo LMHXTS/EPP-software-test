@@ -92,7 +92,7 @@ class PostureApp:
 
         # 暂停遮罩
         self.pause_label = tk.Label(
-            video_frame, text="PAUSED",
+            video_frame, text="已暂停",
             font=(T.FONT, 42, "bold"), fg=T.WHITE, bg=T.BLACK, justify="center"
         )
 
@@ -109,9 +109,9 @@ class PostureApp:
 
         tk.Label(head, text="Ascend NPU", font=(T.FONT, 12, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x')
-        tk.Label(head, text="Posture", font=(T.FONT, 36, "bold"),
+        tk.Label(head, text="姿态检测", font=(T.FONT, 36, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
-        tk.Label(head, text="Real-time spinal monitoring",
+        tk.Label(head, text="实时脊柱姿态监测",
                  font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
                  anchor='w').pack(fill='x')
 
@@ -131,21 +131,21 @@ class PostureApp:
         # 颈部仪表盘
         neck_col = tk.Frame(gauges, bg=T.IVORY)
         neck_col.pack(side='left', expand=True, fill='both')
-        tk.Label(neck_col, text="NECK", font=(T.FONT, 10, "bold"),
+        tk.Label(neck_col, text="颈部", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
         self.neck_gauge = ArcGauge(neck_col, width=170, height=140)
         self.neck_gauge.pack()
-        tk.Label(neck_col, text="Forward head tilt",
+        tk.Label(neck_col, text="头部前倾角度",
                  font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         # 脊柱仪表盘
         spine_col = tk.Frame(gauges, bg=T.IVORY)
         spine_col.pack(side='left', expand=True, fill='both')
-        tk.Label(spine_col, text="SPINE", font=(T.FONT, 10, "bold"),
+        tk.Label(spine_col, text="脊柱", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY).pack()
         self.spine_gauge = ArcGauge(spine_col, width=170, height=140)
         self.spine_gauge.pack()
-        tk.Label(spine_col, text="Slouch / hunch",
+        tk.Label(spine_col, text="驼背 / 圆肩",
                  font=(T.FONT, 10), fg=T.WARMGRY, bg=T.IVORY).pack()
 
         # ---- 分割线 ----
@@ -154,17 +154,17 @@ class PostureApp:
 
         # ---- 阈值滑块 ----
         tk.Frame(p, bg=T.IVORY, height=20).pack()
-        tk.Label(p, text="THRESHOLDS", font=(T.FONT, 10, "bold"),
+        tk.Label(p, text="告警阈值", font=(T.FONT, 10, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad)
         tk.Frame(p, bg=T.IVORY, height=10).pack()
 
-        self._slider_block(p, pad, "Neck forward alert",
+        self._slider_block(p, pad, "颈部前倾告警",
                            PostureConfig.TH_NECK, self._on_neck,
                            self, '_neck_th_label')
 
         tk.Frame(p, bg=T.IVORY, height=16).pack()
 
-        self._slider_block(p, pad, "Spine slouch alert",
+        self._slider_block(p, pad, "脊柱弯曲告警",
                            PostureConfig.TH_SPINE, self._on_spine,
                            self, '_spine_th_label')
 
@@ -175,7 +175,7 @@ class PostureApp:
         # ---- 启停按钮 ----
         tk.Frame(p, bg=T.IVORY, height=22).pack()
         self.btn = tk.Button(
-            p, text="STOP DETECTION", font=(T.FONT, 15, "bold"),
+            p, text="停止检测", font=(T.FONT, 15, "bold"),
             fg=T.WHITE, bg=T.ROSE, relief="flat", bd=0,
             activeforeground=T.WHITE, activebackground="#B85A50",
             padx=20, pady=16, cursor="hand2",
@@ -186,7 +186,7 @@ class PostureApp:
         # ---- 页面切换按钮 ----
         tk.Frame(p, bg=T.IVORY, height=10).pack()
         self.page_btn = tk.Button(
-            p, text="DETECTION RECORDS",
+            p, text="检测记录",
             font=(T.FONT, 11), fg=T.CHARCOAL, bg=T.MIST,
             relief="flat", padx=14, pady=8, cursor="hand2",
             command=self._toggle_page
@@ -197,11 +197,11 @@ class PostureApp:
         bottom = tk.Frame(p, bg=T.IVORY)
         bottom.pack(side='bottom', fill='x', padx=pad, pady=(0, 24))
 
-        self.fps_label = tk.Label(bottom, text="— fps", font=(T.FONT, 10),
+        self.fps_label = tk.Label(bottom, text="— 帧/秒", font=(T.FONT, 10),
                                    fg=T.WARMGRY, bg=T.IVORY)
         self.fps_label.pack(side='left')
 
-        tk.Button(bottom, text="Exit", font=(T.FONT, 10),
+        tk.Button(bottom, text="退出", font=(T.FONT, 10),
                   fg=T.WARMGRY, bg=T.IVORY,
                   activeforeground=T.CHARCOAL, activebackground=T.MIST,
                   relief="flat", padx=8, pady=4,
@@ -221,7 +221,7 @@ class PostureApp:
         top.place(x=0, y=0)
         top.pack_propagate(False)
 
-        tk.Label(top, text="Detection Records", font=(T.FONT, 28, "bold"),
+        tk.Label(top, text="检测记录", font=(T.FONT, 28, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w'
                  ).place(x=pad, y=18)
         tk.Label(top, text="不良姿势事件历史", font=(T.FONT, 12),
@@ -230,9 +230,9 @@ class PostureApp:
 
         # 顶部清除按钮 + 总数
         total = len(self.records.get_all())
-        tk.Label(top, text=f"共 {total} 条", font=(T.FONT, 11),
-                 fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 260, y=55)
-        tk.Button(top, text="CLEAR ALL", font=(T.FONT, 10),
+        tk.Label(top, text=f"共 {total} 条记录", font=(T.FONT, 11),
+                 fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 280, y=55)
+        tk.Button(top, text="全部清除", font=(T.FONT, 10),
                   fg=T.ROSE, bg=T.IVORY,
                   activeforeground=T.WHITE, activebackground=T.ROSE,
                   relief="flat", padx=8, pady=2, cursor="hand2",
@@ -249,7 +249,7 @@ class PostureApp:
         bar.place(x=0, y=bot_y)
         bar.pack_propagate(False)
 
-        tk.Button(bar, text="← BACK TO DETECTION",
+        tk.Button(bar, text="← 返回检测",
                   font=(T.FONT, 14, "bold"), fg=T.WHITE, bg=T.SAGE,
                   relief="flat", padx=24, pady=14, cursor="hand2",
                   command=self._toggle_page
@@ -478,12 +478,12 @@ class PostureApp:
 
             # M0 告警 + 记录（告警延迟 + 持续时间记录）
             now = time.perf_counter()
-            if "Warning" in status:
+            if "⚠" in status:
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
                     # 触发告警
-                    if "Slouching" in status or "Tilt" in status:
+                    if "驼背" in status or "倾斜" in status:
                         self.m0.alert('severe')
                     else:
                         self.m0.alert('warning')
@@ -500,7 +500,7 @@ class PostureApp:
                     if self._alert_active:
                         self.records.end_event()
                         self._alert_active = False
-                self.m0.alert('good' if status == "Standard Posture" else 'none')
+                self.m0.alert('good' if "标准" in status else 'none')
 
             # 更新线程安全共享状态
             with self._lock:
@@ -538,15 +538,15 @@ class PostureApp:
             self.pause_label.place_forget()
 
         # 更新状态胶囊
-        if "Warning" in status:
-            if "Tilt" in status or "Slouching" in status:
-                pill_c, pill_t = T.ROSE, status.upper()
+        if "⚠" in status:
+            if "驼背" in status or "倾斜" in status:
+                pill_c, pill_t = T.ROSE, status
             else:
-                pill_c, pill_t = T.CORAL, status.upper()
-        elif status == "Standard Posture":
-            pill_c, pill_t = T.SAGE, "GOOD POSTURE"
+                pill_c, pill_t = T.CORAL, status
+        elif "标准" in status:
+            pill_c, pill_t = T.SAGE, "标准姿势"
         else:
-            pill_c, pill_t = T.WARMGRY, status.upper()
+            pill_c, pill_t = T.WARMGRY, status
         self.pill.set(pill_t, pill_c)
 
         # 更新弧形仪表盘
@@ -572,10 +572,10 @@ class PostureApp:
     def _toggle(self):
         self._detection_on = not self._detection_on
         if self._detection_on:
-            self.btn.config(text="STOP DETECTION", bg=T.ROSE,
+            self.btn.config(text="停止检测", bg=T.ROSE,
                             activebackground="#B85A50")
         else:
-            self.btn.config(text="START DETECTION", bg=T.SAGE,
+            self.btn.config(text="开始检测", bg=T.SAGE,
                             activebackground="#6F9A7D")
 
     def _on_neck(self, val):
