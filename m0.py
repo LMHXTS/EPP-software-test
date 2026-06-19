@@ -123,12 +123,26 @@ class M0Controller:
 
     # ---- 基础命令 ----
     def buzzer(self, on=True):
-        """控制蜂鸣器 PA12 PWM"""
+        """控制蜂鸣器 PA12 PWM（32kHz 50%占空比）"""
         self._send("BUZZER ON" if on else "BUZZER OFF")
 
     def motor(self, on=True):
         """控制振动马达 PB20 高/低电平"""
         self._send("MOTOR ON" if on else "MOTOR OFF")
+
+    def check(self):
+        """查询当前状态，返回字符串如 'BUZZER:ON MOTOR:OFF'，失败返回 None"""
+        if not self.is_connected:
+            return None
+        with self._lock:
+            try:
+                self._ser.write(b"CHECK\r\n")
+                time.sleep(0.05)
+                resp = self._ser.readline().decode("ascii").strip()
+                return resp if resp else None
+            except (serial.SerialException, OSError):
+                self._connected = False
+                return None
 
     def all_off(self):
         """关闭所有输出"""
