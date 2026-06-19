@@ -48,6 +48,7 @@ class PostureApp:
         # 告警延迟：不良姿势持续 X 秒后才触发
         self._bad_posture_start = 0.0
         self._bad_posture_delay = 3  # 秒
+        self._alert_active = False   # 当前是否在告警中
 
         # 构建主窗口
         self.root = tk.Tk()
@@ -292,25 +293,27 @@ class PostureApp:
 
         for i, r in enumerate(records):
             card = tk.Frame(self._rec_scroll_frame, bg=T.CREAM,
-                             width=card_w, height=52)
+                             width=card_w, height=56)
             card.pack(fill='x', pady=3)
             card.pack_propagate(False)
 
             # 左侧颜色条
             status = r["status"]
             bar_c = T.ROSE if ("Slouching" in status or "Tilt" in status) else T.CORAL
-            tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=52)
+            tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=56)
 
-            # 时间
-            tk.Label(card, text=r["time"], font=(T.FONT, 10),
-                     fg=T.WARMGRY, bg=T.CREAM
-                     ).place(x=14, y=4, width=80)
-
-            # 状态
+            # 状态标签
             short = status.replace("Warning: ", "").replace("!", "")
-            tk.Label(card, text=short, font=(T.FONT, 12, "bold"),
+            tk.Label(card, text=short, font=(T.FONT, 13, "bold"),
                      fg=T.CHARCOAL, bg=T.CREAM
-                     ).place(x=14, y=24, width=300)
+                     ).place(x=14, y=4, width=260)
+
+            # 时间段 + 持续时长
+            dur_str = f"{r['duration_sec']}s" if r['duration_sec'] < 60 else f"{r['duration_sec']//60}m{r['duration_sec']%60}s"
+            time_str = f"{r['start']} — {r['end']}  ({dur_str})"
+            tk.Label(card, text=time_str, font=(T.FONT, 10),
+                     fg=T.WARMGRY, bg=T.CREAM
+                     ).place(x=14, y=28, width=400)
 
             # 角度
             ang = f"N:{r['neck_angle']:.1f}°  S:{r['spine_angle']:.1f}°"
@@ -319,12 +322,12 @@ class PostureApp:
                      ).place(x=card_w - 250, y=16, width=130)
 
             # 删除
-            btn = tk.Button(card, text="×", font=(T.FONT, 15, "bold"),
+            btn = tk.Button(card, text="×", font=(T.FONT, 16, "bold"),
                             fg=T.WARMGRY, bg=T.CREAM,
                             activeforeground=T.ROSE, activebackground=T.MIST,
-                            relief="flat", bd=0, padx=8, pady=4, cursor="hand2",
+                            relief="flat", bd=0, padx=10, pady=4, cursor="hand2",
                             command=lambda idx=i: self._delete_record(idx))
-            btn.place(x=card_w - 55, y=10, width=36, height=32)
+            btn.place(x=card_w - 55, y=10, width=40, height=36)
 
     def _delete_record(self, idx):
         """删除第 idx 条记录"""
@@ -467,22 +470,30 @@ class PostureApp:
             if fc % 100 == 0 or (fc < 10 and kp is None):
                 print(f"[NPU] frame={fc} status={status} fps={fps:.1f}")
 
-            # M0 告警（延迟触发：不良姿势需持续 > self._bad_posture_delay 秒）
+            # M0 告警 + 记录（告警延迟 + 持续时间记录）
             now = time.perf_counter()
             if "Warning" in status:
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
+                    # 触发告警
                     if "Slouching" in status or "Tilt" in status:
                         self.m0.alert('severe')
                     else:
                         self.m0.alert('warning')
-                    # 记录（仅警告）
-                    self.records.add(status, na, sa)
+                    # 记录：开始事件（首次触发时）
+                    if not self._alert_active:
+                        self.records.start_event(status, na, sa)
+                        self._alert_active = True
+                    else:
+                        self.records.update_event(na, sa)
             else:
                 if self._bad_posture_start > 0:
-                    # 不良姿势结束，重置
                     self._bad_posture_start = 0
+                    # 结束事件
+                    if self._alert_active:
+                        self.records.end_event()
+                        self._alert_active = False
                 self.m0.alert('good' if status == "Standard Posture" else 'none')
 
             # 更新线程安全共享状态

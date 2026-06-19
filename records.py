@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""records.py — 姿态检测记录存储与查询"""
+"""records.py — 不良姿势事件记录（持续时间格式）"""
 
 import json
 import time
@@ -7,42 +7,64 @@ import os
 
 
 class PostureRecords:
-    """姿态事件记录器，存 JSON 文件"""
+    """姿势事件记录器。仅记录触发告警的不良姿势，保存起止时间和持续时间。"""
 
-    MAX_RECORDS = 500
+    MAX_RECORDS = 200
 
     def __init__(self, filepath="/tmp/posture_records.json"):
         self.filepath = filepath
         self._records = []
-        self._last_status = ""       # 防抖：状态不变时不重复记录
-        self._last_record_time = 0   # 同状态最小间隔（秒）
+        # 当前进行中的告警
+        self._active_event = None       # {start_time, status, angles[]}
         self._load()
 
-    # ---- 写入 ----
-    def add(self, status, neck_angle, spine_angle):
-        """仅记录告警事件（不记 No Person / Standard Posture）"""
-        if "Warning" not in status:
+    # ---- 事件生命周期 ----
+    def start_event(self, status, neck_angle, spine_angle):
+        """告警触发时调用（不良姿势已持续超过阈值时间）"""
+        if self._active_event is not None:
+            return  # 已有进行中的事件
+        self._active_event = {
+            "date": time.strftime("%Y-%m-%d"),
+            "start": time.strftime("%H:%M:%S"),
+            "start_ts": time.time(),
+            "status": status,
+            "neck_sum": float(neck_angle),
+            "spine_sum": float(spine_angle),
+            "samples": 1,
+        }
+
+    def update_event(self, neck_angle, spine_angle):
+        """告警持续中调用，累积角度样本"""
+        if self._active_event is None:
             return
-        # 防抖：同状态 5 秒内不重复
-        now = time.time()
-        if status == self._last_status and now - self._last_record_time < 5:
+        self._active_event["neck_sum"] += float(neck_angle)
+        self._active_event["spine_sum"] += float(spine_angle)
+        self._active_event["samples"] += 1
+
+    def end_event(self):
+        """告警结束时调用，保存事件到记录列表"""
+        if self._active_event is None:
+            return
+        e = self._active_event
+        dur = int(time.time() - e["start_ts"])
+        # 只记录持续超过 2 秒的事件（过滤闪报）
+        if dur < 2:
+            self._active_event = None
             return
 
         record = {
-            "time": time.strftime("%H:%M:%S"),
-            "date": time.strftime("%Y-%m-%d"),
-            "status": status,
-            "neck_angle": round(float(neck_angle), 1),
-            "spine_angle": round(float(spine_angle), 1),
+            "date": e["date"],
+            "start": e["start"],
+            "end": time.strftime("%H:%M:%S"),
+            "duration_sec": dur,
+            "status": e["status"],
+            "neck_angle": round(e["neck_sum"] / e["samples"], 1),
+            "spine_angle": round(e["spine_sum"] / e["samples"], 1),
         }
         self._records.append(record)
-        self._last_status = status
-        self._last_record_time = now
-
-        # 超过上限时裁剪
         if len(self._records) > self.MAX_RECORDS:
             self._records = self._records[-self.MAX_RECORDS:]
-
+        self._active_event = None
         self._save()
 
     # ---- 查询 ----
@@ -50,18 +72,9 @@ class PostureRecords:
         """返回全部记录（最近在前）"""
         return list(reversed(self._records))
 
-    def get_warnings(self):
-        """仅返回告警记录"""
-        return [r for r in reversed(self._records) if "Warning" in r["status"]]
-
-    def get_today(self):
-        """今日记录"""
-        today = time.strftime("%Y-%m-%d")
-        return [r for r in reversed(self._records) if r["date"] == today]
-
     def clear(self):
-        """清空记录"""
         self._records = []
+        self._active_event = None
         self._save()
 
     # ---- 持久化 ----
