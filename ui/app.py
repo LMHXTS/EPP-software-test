@@ -308,20 +308,25 @@ class PostureApp:
             tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=56)
 
             # 状态标签
-            short = status.replace("Warning: ", "").replace("!", "")
+            short = str(status).replace("Warning: ", "").replace("!", "")
             tk.Label(card, text=short, font=(T.FONT, 13, "bold"),
                      fg=T.CHARCOAL, bg=T.CREAM
                      ).place(x=14, y=4, width=260)
 
-            # 时间段 + 持续时长
-            dur_str = f"{r['duration_sec']}s" if r['duration_sec'] < 60 else f"{r['duration_sec']//60}m{r['duration_sec']%60}s"
-            time_str = f"{r['start']} — {r['end']}  ({dur_str})"
+            # 时间段 + 持续时长（兼容旧格式）
+            if 'duration_sec' in r:
+                dur = r['duration_sec']
+                dur_str = f"{dur}s" if dur < 60 else f"{dur//60}m{dur%60}s"
+                time_str = f"{r['start']} — {r['end']}  ({dur_str})"
+            else:
+                time_str = r.get('time', r.get('start', '?'))
             tk.Label(card, text=time_str, font=(T.FONT, 10),
                      fg=T.WARMGRY, bg=T.CREAM
                      ).place(x=14, y=28, width=400)
 
-            # 角度
-            ang = f"N:{r['neck_angle']:.1f}°  S:{r['spine_angle']:.1f}°"
+            # 角度（兼容旧格式）
+            n = r.get('neck_angle', 0); s = r.get('spine_angle', 0)
+            ang = f"N:{float(n):.1f}°  S:{float(s):.1f}°"
             tk.Label(card, text=ang, font=(T.FONT, 11),
                      fg=T.WARMGRY, bg=T.CREAM
                      ).place(x=card_w - 250, y=16, width=130)
