@@ -34,8 +34,8 @@ class PostureRecords:
             "time": time.strftime("%H:%M:%S"),
             "date": time.strftime("%Y-%m-%d"),
             "status": status,
-            "neck_angle": round(neck_angle, 1),
-            "spine_angle": round(spine_angle, 1),
+            "neck_angle": round(float(neck_angle), 1),
+            "spine_angle": round(float(spine_angle), 1),
         }
         self._records.append(record)
         self._last_status = status
