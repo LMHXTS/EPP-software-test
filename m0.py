@@ -138,9 +138,10 @@ class M0Controller:
         self._send("BUZZER ON" if on else "BUZZER OFF")
 
     def motor(self, on=True):
-        """控制振动马达 PB20 高/低电平（禁用时不发送）"""
-        if self._motor_enabled:
-            self._send("MOTOR ON" if on else "MOTOR OFF")
+        """控制振动马达 PB20 高/低电平。OFF 始终发送，ON 仅在开关开启时发送。"""
+        if on and not self._motor_enabled:
+            return  # 开关关闭时不发送 ON
+        self._send("MOTOR ON" if on else "MOTOR OFF")
 
     def check(self):
         """查询当前状态，返回字符串如 'BUZZER:ON MOTOR:OFF'，失败返回 None"""
