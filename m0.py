@@ -3,6 +3,11 @@
 协议: ASCII 文本 + \r\n 分隔
 命令: BUZZER ON/OFF, MOTOR ON/OFF
 响应: OK / ERROR
+
+告警模式（蜂鸣器间隔区分等级）:
+  严重 (Slouching/Tilt) → 200ms 急促蜂鸣 + 马达振动
+  警告 (Forward Head/Hunchback) → 500ms 间隔蜂鸣
+  良好 (Standard Posture) → 全部关闭
 """
 
 import threading
@@ -15,7 +20,15 @@ except ImportError:
 
 
 class M0Controller:
-    """M0 核心板控制器：蜂鸣器 + 振动马达"""
+    """M0 核心板控制器：蜂鸣器 + 振动马达 + 告警模式"""
+
+    # 告警模式配置：(蜂鸣器开ms, 蜂鸣器关ms, 是否振动)
+    PATTERNS = {
+        "severe": (200, 200, True),     # 急促
+        "warning": (500, 500, False),   # 平缓
+        "good": (0, 0, False),          # 关闭
+        "none": (0, 0, False),          # 关闭
+    }
 
     def __init__(self, port="/dev/ttyUSB0", baud=115200, timeout=0.5):
         self.port = port
@@ -24,6 +37,11 @@ class M0Controller:
         self._ser = None
         self._lock = threading.Lock()
         self._connected = False
+
+        # 告警线程
+        self._alert_thread = None
+        self._alert_level = "none"  # 当前告警等级
+        self._alert_running = False
 
     # ---- 连接 ----
     def connect(self):
@@ -40,7 +58,6 @@ class M0Controller:
                 timeout=self.timeout
             )
             self._connected = True
-            # 等待上电消息
             self._read_ready()
             print(f"[M0] 已连接 {self.port}")
             return True
@@ -51,6 +68,7 @@ class M0Controller:
 
     def close(self):
         """关闭串口"""
+        self._stop_alert()
         if self._ser and self._ser.is_open:
             self._ser.close()
         self._connected = False
@@ -59,7 +77,51 @@ class M0Controller:
     def is_connected(self):
         return self._connected and self._ser and self._ser.is_open
 
-    # ---- 命令 ----
+    # ---- 告警模式（推荐使用） ----
+    def alert(self, level):
+        """设置告警等级: 'severe' / 'warning' / 'good' / 'none'
+        后台线程自动控制蜂鸣器间隔和马达。"""
+        if level not in self.PATTERNS:
+            return
+        self._alert_level = level
+        if level in ("good", "none"):
+            self._stop_alert()
+            self.all_off()
+        else:
+            self._start_alert()
+
+    def _start_alert(self):
+        """启动告警后台线程（如果未运行）"""
+        if self._alert_thread and self._alert_thread.is_alive():
+            return
+        self._alert_running = True
+        self._alert_thread = threading.Thread(target=self._alert_loop, daemon=True)
+        self._alert_thread.start()
+
+    def _stop_alert(self):
+        """停止告警后台线程"""
+        self._alert_running = False
+        if self._alert_thread:
+            self._alert_thread.join(timeout=1)
+            self._alert_thread = None
+
+    def _alert_loop(self):
+        """后台线程：按当前等级循环开关蜂鸣器和马达"""
+        while self._alert_running:
+            on_ms, off_ms, vibrate = self.PATTERNS[self._alert_level]
+            if on_ms == 0:
+                break
+            # 开
+            self.buzzer(True)
+            if vibrate:
+                self.motor(True)
+            time.sleep(on_ms / 1000.0)
+            # 关
+            self.buzzer(False)
+            self.motor(False)
+            time.sleep(off_ms / 1000.0)
+
+    # ---- 基础命令 ----
     def buzzer(self, on=True):
         """控制蜂鸣器 PA12 PWM"""
         self._send("BUZZER ON" if on else "BUZZER OFF")
