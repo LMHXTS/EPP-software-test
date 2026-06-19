@@ -399,11 +399,11 @@ class PostureApp:
         row = tk.Frame(parent, bg=T.IVORY)
         row.pack(fill='x', padx=pad)
 
-        lbl = tk.Label(row, text=label, font=(T.FONT, 12),
+        lbl = tk.Label(row, text=label, font=(T.FONT, 15),
                         fg=T.CHARCOAL, bg=T.IVORY, anchor='w')
         lbl.pack(side='left')
 
-        val_lbl = tk.Label(row, text=f"{value:.1f}°", font=(T.FONT, 14, "bold"),
+        val_lbl = tk.Label(row, text=f"{value:.1f}°", font=(T.FONT, 18, "bold"),
                             fg=T.SAGE, bg=T.IVORY, anchor='e')
         val_lbl.pack(side='right')
         setattr(store_obj, attr, val_lbl)
