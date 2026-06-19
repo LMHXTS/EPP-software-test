@@ -34,7 +34,7 @@ class PostureApp:
         self._lock = threading.Lock()
         self._running = True
         self._detection_on = True
-        self._ppm_bytes = None
+        self._disp_frame = None  # 待显示的原始帧 (BGR)，主线程负责编码
         self._status = "Initializing..."
         self._neck_angle = 0.0
         self._spine_angle = 0.0
@@ -154,17 +154,17 @@ class PostureApp:
 
         # ---- 阈值滑块 ----
         tk.Frame(p, bg=T.IVORY, height=18).pack()
-        tk.Label(p, text="告警阈值", font=(T.FONT, 15, "bold"),
+        tk.Label(p, text="警报阈值", font=(T.FONT, 15, "bold"),
                  fg=T.WARMGRY, bg=T.IVORY, anchor='w').pack(fill='x', padx=pad)
         tk.Frame(p, bg=T.IVORY, height=12).pack()
 
-        self._slider_block(p, pad, "颈部前倾告警",
+        self._slider_block(p, pad, "颈部前倾警报",
                            PostureConfig.TH_NECK, self._on_neck,
                            self, '_neck_th_label')
 
         tk.Frame(p, bg=T.IVORY, height=24).pack()
 
-        self._slider_block(p, pad, "脊柱弯曲告警",
+        self._slider_block(p, pad, "脊柱弯曲警报",
                            PostureConfig.TH_SPINE, self._on_spine,
                            self, '_spine_th_label')
 
@@ -199,7 +199,7 @@ class PostureApp:
         sw_frame.pack(fill='x', padx=pad)
 
         self.buzzer_btn = tk.Button(
-            sw_frame, text="🔔 蜂鸣器: 开", font=(T.FONT, 12, "bold"),
+            sw_frame, text="蜂鸣器: 开", font=(T.FONT, 12, "bold"),
             fg=T.WHITE, bg=T.SAGE, relief="flat", bd=0,
             padx=10, pady=8, cursor="hand2",
             command=self._toggle_buzzer
@@ -207,7 +207,7 @@ class PostureApp:
         self.buzzer_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
 
         self.motor_btn = tk.Button(
-            sw_frame, text="📳 马达: 关", font=(T.FONT, 12, "bold"),
+            sw_frame, text="马达: 关", font=(T.FONT, 12, "bold"),
             fg=T.CHARCOAL, bg=T.MIST, relief="flat", bd=0,
             padx=10, pady=8, cursor="hand2",
             command=self._toggle_motor
@@ -325,7 +325,7 @@ class PostureApp:
 
             # 左侧颜色条
             status = r["status"]
-            bar_c = T.ROSE if ("⚠ 驼背" in status or "⚠ 头部前倾" in status) else T.CORAL
+            bar_c = T.ROSE if ("驼背" in status or "头部前倾" in status) else T.CORAL
             tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=56)
 
             # 状态标签
@@ -487,10 +487,8 @@ class PostureApp:
                 cv2.putText(disp, f"FPS: {fps:.1f}", (20, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            # 缩小到显示分辨率 → PPM 编码
+            # 缩小到显示分辨率（主线程负责 PPM 编码）
             small = cv2.resize(disp, (T.DISP_W, T.DISP_H))
-            ok, ppm = cv2.imencode('.ppm', small)
-            if not ok: continue
 
             # 每 100 帧或前 10 帧无人时打印调试
             fc += 1
@@ -524,9 +522,9 @@ class PostureApp:
                         self._alert_active = False
                 self.m0.alert('good' if "标准" in status else 'none')
 
-            # 更新线程安全共享状态
+            # 更新线程安全共享状态（存原始帧，主线程编码 PPM）
             with self._lock:
-                self._ppm_bytes = ppm.tobytes()
+                self._disp_frame = small
                 self._status = status
                 self._neck_angle = na
                 self._spine_angle = sa
@@ -538,18 +536,21 @@ class PostureApp:
     # ================================================================
     def _refresh_display(self):
         with self._lock:
-            ppm = self._ppm_bytes
+            frame = self._disp_frame
             status = self._status
             na = self._neck_angle
             sa = self._spine_angle
             fps = self._fps
             paused = self._paused
 
-        if ppm:
+        # 主线程做 PPM 编码（不阻塞 NPU 推理）
+        if frame is not None:
             try:
-                img = tk.PhotoImage(data=ppm)
-                self.video_label.config(image=img)
-                self.video_label.image = img
+                ok, ppm = cv2.imencode('.ppm', frame)
+                if ok:
+                    img = tk.PhotoImage(data=ppm.tobytes())
+                    self.video_label.config(image=img)
+                    self.video_label.image = img
             except Exception:
                 pass
 
@@ -586,7 +587,7 @@ class PostureApp:
                 self._refresh_records()
                 self._last_rec_refresh = now
 
-        self.root.after(33, self._refresh_display)
+        self.root.after(50, self._refresh_display)
 
     # ================================================================
     #  交互回调
@@ -613,18 +614,18 @@ class PostureApp:
     def _toggle_buzzer(self):
         self._buzzer_on = not self._buzzer_on
         if self._buzzer_on:
-            self.buzzer_btn.config(text="🔔 蜂鸣器: 开", bg=T.SAGE, fg=T.WHITE)
+            self.buzzer_btn.config(text="蜂鸣器: 开", bg=T.SAGE, fg=T.WHITE)
         else:
-            self.buzzer_btn.config(text="🔔 蜂鸣器: 关", bg=T.MIST, fg=T.CHARCOAL)
+            self.buzzer_btn.config(text="蜂鸣器: 关", bg=T.MIST, fg=T.CHARCOAL)
             self.m0.buzzer(False)
 
     def _toggle_motor(self):
         self._motor_on = not self._motor_on
         self.m0._motor_enabled = self._motor_on
         if self._motor_on:
-            self.motor_btn.config(text="📳 马达: 开", bg=T.SAGE, fg=T.WHITE)
+            self.motor_btn.config(text="马达: 开", bg=T.SAGE, fg=T.WHITE)
         else:
-            self.motor_btn.config(text="📳 马达: 关", bg=T.MIST, fg=T.CHARCOAL)
+            self.motor_btn.config(text="马达: 关", bg=T.MIST, fg=T.CHARCOAL)
             self.m0.motor(False)
 
     def _toggle_fs(self):
