@@ -216,17 +216,26 @@ class PostureApp:
 
         tk.Label(top, text="Detection Records", font=(T.FONT, 30, "bold"),
                  fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
-        tk.Label(top, text="不良姿势事件历史",
+        sub = tk.Frame(top, bg=T.IVORY)
+        sub.pack(fill='x')
+        tk.Label(sub, text="不良姿势事件历史",
                  font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
-                 anchor='w').pack(fill='x')
+                 anchor='w').pack(side='left')
+        tk.Button(sub, text="CLEAR ALL", font=(T.FONT, 10),
+                  fg=T.ROSE, bg=T.IVORY,
+                  activeforeground=T.WHITE, activebackground=T.ROSE,
+                  relief="flat", padx=8, pady=2, cursor="hand2",
+                  command=self._clear_all_records
+                  ).pack(side='right')
 
         self._records_empty = tk.Label(top, text="暂无记录",
                                         font=(T.FONT, 14), fg=T.WARMGRY, bg=T.IVORY)
         self._records_empty.pack_forget()
 
         # ---- 可滚动卡片区域 ----
+        canvas_h = self.sh - 220  # 预留顶部标题(100) + 底部按钮栏(60) + margin
         canvas = tk.Canvas(p, bg=T.IVORY, highlightthickness=0,
-                            width=self.sw - pad * 2, height=self.sh - 240)
+                            width=self.sw - pad * 2, height=canvas_h)
         scroll = ttk.Scrollbar(p, orient="vertical", command=canvas.yview)
         self._rec_scroll_frame = tk.Frame(canvas, bg=T.IVORY)
 
@@ -263,9 +272,11 @@ class PostureApp:
                   command=self._clear_all_records
                   ).pack(side='right')
 
-        # 每页来源
-        tk.Label(bar, text=f"共 {len(self.records.get_all())} 条",
-                 font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY).pack(side='right', padx=20)
+        # 总数
+        total = len(self.records.get_all())
+        self._rec_total = tk.Label(bar, text=f"共 {total} 条记录",
+                                    font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY)
+        self._rec_total.pack(side='right', padx=20)
 
         self._records_page = p
         self._refresh_records()
