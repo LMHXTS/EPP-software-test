@@ -203,80 +203,76 @@ class PostureApp:
                   ).pack(side='right')
 
     def _build_records_page(self):
-        """构建检测记录页面（卡片式布局 + 逐条删除）"""
+        """构建检测记录页面（三段式布局，顶部/底部固定，中间滚动）"""
         p = tk.Frame(self.root, bg=T.IVORY, width=self.sw, height=self.sh)
         p.place(x=0, y=0)
         p.pack_propagate(False)
-        pad = 50
+        pad = 60
 
-        # ---- 顶部 ----
-        top = tk.Frame(p, bg=T.IVORY, height=100)
-        top.pack(fill='x', padx=pad, pady=(pad, 0))
+        # ---------- 顶部固定栏 (0 ~ 100) ----------
+        top = tk.Frame(p, bg=T.IVORY, width=self.sw, height=100)
+        top.place(x=0, y=0)
         top.pack_propagate(False)
 
-        tk.Label(top, text="Detection Records", font=(T.FONT, 30, "bold"),
-                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w').pack(fill='x')
-        sub = tk.Frame(top, bg=T.IVORY)
-        sub.pack(fill='x')
-        tk.Label(sub, text="不良姿势事件历史",
-                 font=(T.FONT, 12), fg=T.WARMGRY, bg=T.IVORY,
-                 anchor='w').pack(side='left')
-        tk.Button(sub, text="CLEAR ALL", font=(T.FONT, 10),
+        tk.Label(top, text="Detection Records", font=(T.FONT, 28, "bold"),
+                 fg=T.CHARCOAL, bg=T.IVORY, anchor='w'
+                 ).place(x=pad, y=18)
+        tk.Label(top, text="不良姿势事件历史", font=(T.FONT, 12),
+                 fg=T.WARMGRY, bg=T.IVORY, anchor='w'
+                 ).place(x=pad, y=60)
+
+        # 顶部清除按钮 + 总数
+        total = len(self.records.get_all())
+        tk.Label(top, text=f"共 {total} 条", font=(T.FONT, 11),
+                 fg=T.WARMGRY, bg=T.IVORY).place(x=self.sw - pad - 260, y=55)
+        tk.Button(top, text="CLEAR ALL", font=(T.FONT, 10),
                   fg=T.ROSE, bg=T.IVORY,
                   activeforeground=T.WHITE, activebackground=T.ROSE,
                   relief="flat", padx=8, pady=2, cursor="hand2",
                   command=self._clear_all_records
-                  ).pack(side='right')
+                  ).place(x=self.sw - pad - 200, y=48)
 
-        self._records_empty = tk.Label(top, text="暂无记录",
-                                        font=(T.FONT, 14), fg=T.WARMGRY, bg=T.IVORY)
-        self._records_empty.pack_forget()
+        # 空状态提示
+        self._records_empty = tk.Label(p, text="暂无记录",
+                                        font=(T.FONT, 16), fg=T.SAND, bg=T.IVORY)
 
-        # ---- 可滚动卡片区域 ----
-        canvas_h = self.sh - 220  # 预留顶部标题(100) + 底部按钮栏(60) + margin
-        canvas = tk.Canvas(p, bg=T.IVORY, highlightthickness=0,
-                            width=self.sw - pad * 2, height=canvas_h)
-        scroll = ttk.Scrollbar(p, orient="vertical", command=canvas.yview)
-        self._rec_scroll_frame = tk.Frame(canvas, bg=T.IVORY)
-
-        self._rec_scroll_frame.bind("<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self._rec_scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scroll.set)
-
-        # 鼠标滚轮支持
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
-
-        canvas.pack(side='left', fill='both', expand=True, padx=(pad, 0))
-        scroll.pack(side='right', fill='y', padx=(0, pad))
-
-        self._rec_canvas = canvas
-
-        # ---- 底部按钮栏 ----
-        bar = tk.Frame(p, bg=T.IVORY, height=60)
-        bar.pack(side='bottom', fill='x', padx=pad, pady=(10, 30))
+        # ---------- 底部固定栏 (下端 80px) ----------
+        bot_y = self.sh - 80
+        bar = tk.Frame(p, bg=T.IVORY, width=self.sw, height=80)
+        bar.place(x=0, y=bot_y)
         bar.pack_propagate(False)
 
         tk.Button(bar, text="← BACK TO DETECTION",
                   font=(T.FONT, 14, "bold"), fg=T.WHITE, bg=T.SAGE,
                   relief="flat", padx=24, pady=14, cursor="hand2",
                   command=self._toggle_page
-                  ).pack(side='left')
+                  ).place(x=pad, y=12)
 
         tk.Button(bar, text="CLEAR ALL",
                   font=(T.FONT, 12), fg=T.ROSE, bg=T.IVORY,
                   activeforeground=T.WHITE, activebackground=T.ROSE,
                   relief="flat", padx=16, pady=10, cursor="hand2",
                   command=self._clear_all_records
-                  ).pack(side='right')
+                  ).place(x=self.sw - pad - 140, y=14)
 
-        # 总数
-        total = len(self.records.get_all())
-        self._rec_total = tk.Label(bar, text=f"共 {total} 条记录",
-                                    font=(T.FONT, 11), fg=T.WARMGRY, bg=T.IVORY)
-        self._rec_total.pack(side='right', padx=20)
+        # ---------- 滚动卡片区 (100 ~ sh-80) ----------
+        canvas = tk.Canvas(p, bg=T.IVORY, highlightthickness=0)
+        canvas.place(x=pad, y=100, width=self.sw - pad, height=bot_y - 100)
+
+        scroll = ttk.Scrollbar(p, orient="vertical", command=canvas.yview)
+        scroll.place(x=self.sw - 20, y=100, height=bot_y - 100)
+
+        self._rec_scroll_frame = tk.Frame(canvas, bg=T.IVORY, width=self.sw - pad - 20)
+        self._rec_scroll_frame.bind("<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=self._rec_scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+
+        # 鼠标滚轮
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
+        self._rec_canvas = canvas
 
         self._records_page = p
         self._refresh_records()
@@ -288,54 +284,47 @@ class PostureApp:
 
         records = self.records.get_all()
         if not records:
-            self._records_empty.place(relx=0.5, rely=0.5, anchor="center")
+            self._records_empty.place(x=self.sw // 2 - 60, y=self.sh // 2 - 20)
         else:
             self._records_empty.place_forget()
 
-        pad = 8
-        card_w = self.sw - 130  # 左 margin 50 + 右 scrollbar ~30 + padding
+        card_w = self.sw - 120  # 60 margin × 2 - 20 scrollbar
 
         for i, r in enumerate(records):
             card = tk.Frame(self._rec_scroll_frame, bg=T.CREAM,
                              width=card_w, height=52)
-            card.pack(fill='x', padx=0, pady=4)
+            card.pack(fill='x', pady=3)
             card.pack_propagate(False)
 
-            # 左侧竖线（颜色标识）
+            # 左侧颜色条
             status = r["status"]
-            if "Slouching" in status or "Tilt" in status:
-                bar_c = T.ROSE
-            elif "Hunchback" in status:
-                bar_c = T.CORAL
-            else:
-                bar_c = T.CORAL
+            bar_c = T.ROSE if ("Slouching" in status or "Tilt" in status) else T.CORAL
             tk.Frame(card, bg=bar_c, width=4).place(x=0, y=0, height=52)
 
             # 时间
             tk.Label(card, text=r["time"], font=(T.FONT, 10),
-                     fg=T.WARMGRY, bg=T.CREAM, anchor='w'
+                     fg=T.WARMGRY, bg=T.CREAM
                      ).place(x=14, y=4, width=80)
 
-            # 状态标签
-            short_status = status.replace("Warning: ", "").replace("!", "")
-            tk.Label(card, text=short_status, font=(T.FONT, 12, "bold"),
-                     fg=T.CHARCOAL, bg=T.CREAM, anchor='w'
-                     ).place(x=14, y=24, width=260)
+            # 状态
+            short = status.replace("Warning: ", "").replace("!", "")
+            tk.Label(card, text=short, font=(T.FONT, 12, "bold"),
+                     fg=T.CHARCOAL, bg=T.CREAM
+                     ).place(x=14, y=24, width=300)
 
-            # 角度数值
-            angles = f"N:{r['neck_angle']:.1f}°  S:{r['spine_angle']:.1f}°"
-            tk.Label(card, text=angles, font=(T.FONT, 11),
-                     fg=T.WARMGRY, bg=T.CREAM, anchor='e'
-                     ).place(x=card_w - 200, y=16, width=110)
+            # 角度
+            ang = f"N:{r['neck_angle']:.1f}°  S:{r['spine_angle']:.1f}°"
+            tk.Label(card, text=ang, font=(T.FONT, 11),
+                     fg=T.WARMGRY, bg=T.CREAM
+                     ).place(x=card_w - 250, y=16, width=130)
 
-            # 删除按钮（右对齐，始终可见）
+            # 删除
             btn = tk.Button(card, text="×", font=(T.FONT, 15, "bold"),
                             fg=T.WARMGRY, bg=T.CREAM,
                             activeforeground=T.ROSE, activebackground=T.MIST,
-                            relief="flat", bd=0, padx=8, pady=4,
-                            cursor="hand2",
+                            relief="flat", bd=0, padx=8, pady=4, cursor="hand2",
                             command=lambda idx=i: self._delete_record(idx))
-            btn.place(x=card_w - 50, y=10, width=36, height=32)
+            btn.place(x=card_w - 55, y=10, width=36, height=32)
 
     def _delete_record(self, idx):
         """删除第 idx 条记录"""
