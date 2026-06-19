@@ -127,8 +127,8 @@ class M0Controller:
             # 蜂鸣器关
             if self.buzzer_enabled:
                 self.buzzer(False)
-            # 马达：continuous 不关 / pulse 跟随关
-            if motor_mode == "pulse" and self._motor_enabled:
+            # 马达：continuous 持续振不关 / pulse 跟随关 / 开关关闭时强制关
+            if motor_mode == "pulse" or not self._motor_enabled:
                 self.motor(False)
             time.sleep(off_ms / 1000.0)
 
