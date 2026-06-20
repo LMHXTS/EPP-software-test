@@ -515,6 +515,8 @@ class PostureApp:
                         self._alert_active = False
                 self.m0.alert('good' if "标准" in status else 'none')
 
+            time.sleep(0)  # 主动让出 GIL，让 Tkinter 有机会刷新
+
             # 更新线程安全共享状态
             with self._lock:
                 self._ppm_bytes = ppm.tobytes()
