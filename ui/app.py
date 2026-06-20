@@ -51,6 +51,7 @@ class PostureApp:
         self._bad_posture_start = 0.0
         self._bad_posture_delay = 3  # 秒
         self._alert_active = False   # 当前是否在告警中
+        self._alert_status = ""      # 当前告警的姿势类型（用于检测类型变化）
         self._buzzer_on = True       # 蜂鸣器开关
         self._motor_on = False       # 马达开关（默认关）
 
@@ -491,27 +492,32 @@ class PostureApp:
             if fc % 100 == 0 or (fc < 10 and kp is None):
                 print(f"[NPU] frame={fc} status={status} fps={fps:.1f}")
 
-            # M0 告警 + 记录（告警延迟 + 持续时间记录）
+            # M0 告警 + 记录（姿势类型变化时重新记录，每种需持续 ≥3 秒）
             now = time.perf_counter()
             if "⚠" in status:
+                # 姿势类型变了 → 结束旧记录，重置计时
+                if self._alert_status and status != self._alert_status:
+                    self.records.end_event()
+                    self._alert_active = False
+                    self._bad_posture_start = now
+
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
-                    # 触发告警（M0 内部根据 buzzer_enabled / _motor_enabled 决定输出）
                     if "驼背" in status or "倾斜" in status:
                         self.m0.alert('severe')
                     else:
                         self.m0.alert('warning')
-                    # 记录：开始事件（首次触发时）
                     if not self._alert_active:
                         self.records.start_event(status, na, sa)
                         self._alert_active = True
+                        self._alert_status = status
                     else:
                         self.records.update_event(na, sa)
             else:
                 if self._bad_posture_start > 0:
                     self._bad_posture_start = 0
-                    # 结束事件
+                    self._alert_status = ""
                     if self._alert_active:
                         self.records.end_event()
                         self._alert_active = False
