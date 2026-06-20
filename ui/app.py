@@ -544,6 +544,8 @@ class PostureApp:
         if fid != self._last_shown and ppm:
             try:
                 img = tk.PhotoImage(data=ppm)
+                if T.ZOOM > 1:
+                    img = img.zoom(T.ZOOM, T.ZOOM)
                 self.video_label.config(image=img)
                 self.video_label.image = img
                 self._last_shown = fid
