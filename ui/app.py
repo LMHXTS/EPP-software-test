@@ -34,7 +34,7 @@ class PostureApp:
         self._lock = threading.Lock()
         self._running = True
         self._detection_on = True
-        self._disp_frame = None  # 待显示的原始帧 (BGR)，主线程负责编码
+        self._ppm_bytes = None  # NPU 线程预编码的 PPM 帧
         self._status = "Initializing..."
         self._neck_angle = 0.0
         self._spine_angle = 0.0
@@ -479,8 +479,10 @@ class PostureApp:
                 status, na, sa = "No Person", 0.0, 0.0
                 disp = orig
 
-            # 缩小到显示分辨率（主线程负责 PPM 编码）
+            # 缩小到显示分辨率 → PPM 编码（NPU 线程完成，主线程只管显示）
             small = cv2.resize(disp, (T.DISP_W, T.DISP_H))
+            ok, ppm = cv2.imencode('.ppm', small)
+            if not ok: continue
 
             # 每 100 帧或前 10 帧无人时打印调试
             fc += 1
@@ -513,9 +515,9 @@ class PostureApp:
                         self._alert_active = False
                 self.m0.alert('good' if "标准" in status else 'none')
 
-            # 更新线程安全共享状态（存原始帧，主线程编码 PPM）
+            # 更新线程安全共享状态
             with self._lock:
-                self._disp_frame = small
+                self._ppm_bytes = ppm.tobytes()
                 self._status = status
                 self._neck_angle = na
                 self._spine_angle = sa
@@ -527,21 +529,18 @@ class PostureApp:
     # ================================================================
     def _refresh_display(self):
         with self._lock:
-            frame = self._disp_frame
+            ppm = self._ppm_bytes
             status = self._status
             na = self._neck_angle
             sa = self._spine_angle
             fps = self._fps
             paused = self._paused
 
-        # 主线程做 PPM 编码（不阻塞 NPU 推理）
-        if frame is not None:
+        if ppm:
             try:
-                ok, ppm = cv2.imencode('.ppm', frame)
-                if ok:
-                    img = tk.PhotoImage(data=ppm.tobytes())
-                    self.video_label.config(image=img)
-                    self.video_label.image = img
+                img = tk.PhotoImage(data=ppm)
+                self.video_label.config(image=img)
+                self.video_label.image = img
             except Exception:
                 pass
 
@@ -578,7 +577,7 @@ class PostureApp:
                 self._refresh_records()
                 self._last_rec_refresh = now
 
-        self.root.after(100, self._refresh_display)
+        self.root.after(50, self._refresh_display)
 
     # ================================================================
     #  交互回调
