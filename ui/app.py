@@ -495,12 +495,17 @@ class PostureApp:
             # M0 告警 + 记录（姿势类型变化时重新记录，每种需持续 ≥3 秒）
             now = time.perf_counter()
             if "⚠" in status:
-                # 姿势类型变了 → 结束旧记录，重置计时，更新状态
+                # 姿势类型变了 → 结束旧记录，重置计时，立即切换 M0 模式
                 if self._alert_status and status != self._alert_status:
                     self.records.end_event()
                     self._alert_active = False
                     self._alert_status = status
                     self._bad_posture_start = now
+                    # 立即更新 M0 告警等级
+                    if "驼背" in status or "倾斜" in status:
+                        self.m0.alert('severe')
+                    else:
+                        self.m0.alert('warning')
 
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
