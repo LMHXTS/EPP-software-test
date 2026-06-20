@@ -44,11 +44,14 @@ class PostureRecords:
     def end_event(self):
         """告警结束时调用，保存事件到记录列表"""
         if self._active_event is None:
+            print("[REC] end_event called but no active event")
             return
         e = self._active_event
         dur = int(time.time() - e["start_ts"])
+        print(f"[REC] end_event: status={e['status']} dur={dur}s")
         # 只记录持续超过 2 秒的事件（过滤闪报）
         if dur < 2:
+            print("[REC] skipped (dur < 2s)")
             self._active_event = None
             return
 
