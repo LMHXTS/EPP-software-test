@@ -102,14 +102,12 @@ class M0Controller:
         self._alert_thread.start()
 
     def _stop_alert(self):
-        """停止告警后台线程"""
-        was_running = self._alert_running
+        """停止告警后台线程，关闭所有输出"""
         self._alert_running = False
         if self._alert_thread:
             self._alert_thread.join(timeout=1)
             self._alert_thread = None
-        if was_running:          # 仅在告警真在跑时才发 OFF
-            self.all_off()
+        self.all_off()
 
     def _alert_loop(self):
         """后台线程：按当前等级循环蜂鸣器，马达按模式独立控制"""
