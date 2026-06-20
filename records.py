@@ -11,7 +11,7 @@ class PostureRecords:
 
     MAX_RECORDS = 200
 
-    def __init__(self, filepath="/tmp/posture_records.json"):
+    def __init__(self, filepath="/root/Desktop/elec_project/records.json"):
         self.filepath = filepath
         self._records = []
         # 当前进行中的告警
