@@ -478,8 +478,6 @@ class PostureApp:
             else:
                 status, na, sa = "No Person", 0.0, 0.0
                 disp = orig
-                cv2.putText(disp, f"FPS: {fps:.1f}", (20, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
             # 缩小到显示分辨率（主线程负责 PPM 编码）
             small = cv2.resize(disp, (T.DISP_W, T.DISP_H))
