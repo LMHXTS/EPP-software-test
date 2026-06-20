@@ -578,7 +578,7 @@ class PostureApp:
                 self._refresh_records()
                 self._last_rec_refresh = now
 
-        self.root.after(50, self._refresh_display)
+        self.root.after(100, self._refresh_display)
 
     # ================================================================
     #  交互回调
