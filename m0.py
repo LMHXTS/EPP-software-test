@@ -25,7 +25,7 @@ class M0Controller:
     # 告警模式：(蜂鸣器开ms, 蜂鸣器关ms, 马达模式)
     # 马达模式: "off"=关闭, "continuous"=持续振动, "pulse"=跟随蜂鸣器节奏
     PATTERNS = {
-        "severe": (200, 200, "continuous"),
+        "severe": (200, 200, "pulse"),
         "warning": (500, 500, "pulse"),
         "good": (0, 0, "off"),
         "none": (0, 0, "off"),
