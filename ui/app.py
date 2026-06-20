@@ -35,6 +35,8 @@ class PostureApp:
         self._running = True
         self._detection_on = True
         self._ppm_bytes = None  # NPU 线程预编码的 PPM 帧
+        self._frame_id = 0       # 帧号，显示线程用它判断是否有新帧
+        self._last_shown = -1     # 上次显示的帧号
         self._status = "Initializing..."
         self._neck_angle = 0.0
         self._spine_angle = 0.0
@@ -515,11 +517,10 @@ class PostureApp:
                         self._alert_active = False
                 self.m0.alert('good' if "标准" in status else 'none')
 
-            time.sleep(0)  # 主动让出 GIL，让 Tkinter 有机会刷新
-
             # 更新线程安全共享状态
             with self._lock:
                 self._ppm_bytes = ppm.tobytes()
+                self._frame_id += 1
                 self._status = status
                 self._neck_angle = na
                 self._spine_angle = sa
@@ -531,6 +532,7 @@ class PostureApp:
     # ================================================================
     def _refresh_display(self):
         with self._lock:
+            fid = self._frame_id
             ppm = self._ppm_bytes
             status = self._status
             na = self._neck_angle
@@ -538,11 +540,13 @@ class PostureApp:
             fps = self._fps
             paused = self._paused
 
-        if ppm:
+        # 仅在新帧到达时更新视频画面
+        if fid != self._last_shown and ppm:
             try:
                 img = tk.PhotoImage(data=ppm)
                 self.video_label.config(image=img)
                 self.video_label.image = img
+                self._last_shown = fid
             except Exception:
                 pass
 
