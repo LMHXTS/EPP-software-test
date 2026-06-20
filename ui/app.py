@@ -495,10 +495,11 @@ class PostureApp:
             # M0 告警 + 记录（姿势类型变化时重新记录，每种需持续 ≥3 秒）
             now = time.perf_counter()
             if "⚠" in status:
-                # 姿势类型变了 → 结束旧记录，重置计时
+                # 姿势类型变了 → 结束旧记录，重置计时，更新状态
                 if self._alert_status and status != self._alert_status:
                     self.records.end_event()
                     self._alert_active = False
+                    self._alert_status = status
                     self._bad_posture_start = now
 
                 if self._bad_posture_start == 0:
