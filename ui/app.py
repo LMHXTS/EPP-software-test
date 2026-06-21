@@ -502,7 +502,7 @@ class PostureApp:
                     self._alert_status = status
                     self._bad_posture_start = now
                     # 立即更新 M0 告警等级
-                    if "驼背" in status or "倾斜" in status:
+                    if "驼背" in status:
                         self.m0.alert('severe')
                     else:
                         self.m0.alert('warning')
@@ -510,7 +510,7 @@ class PostureApp:
                 if self._bad_posture_start == 0:
                     self._bad_posture_start = now
                 elif now - self._bad_posture_start >= self._bad_posture_delay:
-                    if "驼背" in status or "倾斜" in status:
+                    if "驼背" in status:
                         self.m0.alert('severe')
                     else:
                         self.m0.alert('warning')
@@ -572,7 +572,7 @@ class PostureApp:
 
         # 更新状态胶囊
         if "⚠" in status:
-            if "驼背" in status or "倾斜" in status:
+            if "驼背" in status:
                 pill_c, pill_t = T.ROSE, status
             else:
                 pill_c, pill_t = T.CORAL, status
